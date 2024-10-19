@@ -1,0 +1,31 @@
+(*
+	定期的に通知を出す
+	2018-12-03
+*)
+
+property f : 1
+
+on idle
+	
+	set aTime to 15 --分単位で指定
+	
+	my main()
+	return aTime * minutes
+	
+end idle
+
+on main()
+	
+	set aTitle to "カサカサ警報"
+	set aMess1 to "水分補給の時間です"
+	set aMess2 to "そろそろ休憩を取りませんか？"
+	
+	if f is not 4 then
+		display notification aMess1 with title aTitle
+		set f to f + 1
+	else
+		display notification aMess2 with title aTitle
+		set f to 1
+	end if
+	
+end main
