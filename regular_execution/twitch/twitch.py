@@ -1,6 +1,7 @@
 from typing import Any
 
 import requests
+
 from regular_execution import CLIENT_ID, CLIENT_SECRET
 
 
@@ -34,10 +35,29 @@ class TwitchAPI:
         response.raise_for_status()
         return response.json().get("data")
 
-    def get_broadcaster_keys(self, name: str) -> tuple[str | None, str | None, str | None]:
+    def get_broadcaster_id(self, name: str) -> str | None:
         url = self.base_url + "users"
         query_params = {"login": name}
         data = self._get_response(url, query_params)
         if not data:
-            return None, None, None
-        return data[0].get("id"), data[0].get("login"), data[0].get("display_name")
+            return None
+        return data[0].get("id")
+
+    def _get_stream_data(self, stream_data: list[dict[str, Any]]):
+        return stream_data[0].get("user_name"), stream_data[0].get("title")
+
+    def get_stream_by_id(self, user_id: str) -> tuple[str | None, str | None]:
+        url = self.base_url + "streams"
+        query_params = {"user_id": user_id}
+        stream_data = self._get_response(url, query_params)
+        if not stream_data:
+            return None, None
+        return self._get_stream_data(stream_data)
+
+    def get_stream_by_name(self, user_name: str) -> tuple[str | None, str | None]:
+        url = self.base_url + "streams"
+        query_params = {"user_login": user_name}
+        stream_data = self._get_response(url, query_params)
+        if not stream_data:
+            return None, None
+        return self._get_stream_data(stream_data)

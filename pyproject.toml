@@ -1,0 +1,91 @@
+[tool.poetry]
+name = "stream_notivication"
+version = "1.8.3"
+description = ""
+authors = ["HaGaTa_"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11.1"
+requests = "2.32.1"
+python-dotenv = "1.0.1"
+greenlet = "3.0.3"
+ruff = "^0.6.5"
+mypy = "^1.11.2"
+nuitka = "^2.4.10"
+
+############
+# mypyの設定
+############
+
+# https://mypy.readthedocs.io/en/stable/config_file.html
+
+[tool.mypy]
+python_version = "3.11"
+show_error_context = true
+show_column_numbers = true
+disallow_untyped_defs = false
+no_implicit_optional = true
+check_untyped_defs = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+# サードパーティの[import-untyped]を無視する
+module = [
+    'requests',
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 120
+
+# Option Settings
+## https://gihyo.jp/article/2023/03/monthly-python-2303
+## 略称一覧: https://pypi.org/project/ruff/0.0.242/#supported-rule
+
+
+lint.select = ["ALL"]
+
+lint.ignore = [
+    "D",
+    "ANN",
+    "UP",
+    "PTH",
+    "RUF",
+    "N818",   # Exception名のサフィックス警告
+    "SLF001", # プライベートメンバーアクセス警告
+    "E731",   # lambda式の代わりにdef使用警告
+    "ARG005", # 未使用のlambdaラムダ引数警告
+]
+
+# Assume Python 3.11
+target-version = "py311"
+
+[tool.ruff.lint.per-file-ignores]
+
+# https://docs.astral.sh/ruff/settings/#lint_per-file-ignores
+"*.py" = [
+    "ANN101",
+    "ANN102",
+    "COM812",
+    "ERA001",
+    "FBT001",
+    "FBT002",
+    "INP001",
+    "PT009",
+    "PTH207",
+    "S311",
+    "S603",
+    "T201",
+    "TRY002",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
