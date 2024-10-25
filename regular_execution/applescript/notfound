@@ -1,1 +1,0 @@
-display notification "指定されたStreamerが見つかりませんでした。" with title "StreamNotification Error"

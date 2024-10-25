@@ -1,90 +1,125 @@
-import os
+import asyncio
+import signal
 import subprocess
 import sys
-import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox
+from typing import NoReturn, Optional
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from regular_execution.twitch import TwitchAPI
 
 
 class StreamNotificationApp:
     def __init__(self):
-        self.root = tk.Tk()
-        self.root.title("StreamNotification")
-        self.root.geometry("300x150")
-
-        # スクリプトのベースディレクトリを取得
-        self.base_dir = Path(__file__).parent.absolute()
-
-        # GUI要素の作成
-        self.label = tk.Label(self.root, text="Streamerのユーザ名を入力してください")
-        self.label.pack(pady=10)
-
-        self.entry = tk.Entry(self.root)
-        self.entry.pack(pady=10)
-
-        self.submit_button = tk.Button(self.root, text="選択", command=self.handle_submit)
-        self.submit_button.pack(pady=10)
-
+        self.base_dir = Path(__file__).parent.resolve()
         self.twitch_api = TwitchAPI()
+        self.is_running = True
 
-    def handle_submit(self):
-        username = self.entry.get()
-        if not username:
-            messagebox.showerror("エラー", "ユーザ名を入力してください")
-            return
+    def _handle_script_not_found(self, script_path: Path) -> NoReturn:
+        """スクリプトが見つからない場合のエラー処理"""
+        error_msg = f"Script not found: {script_path}"
+        raise FileNotFoundError(error_msg)
 
-        broadcaster_id = self.twitch_api.get_broadcaster_id(username)
+    def display_message(self, message: str) -> None:
+        """メッセージを現在のターミナルに表示"""
+        print(message)
 
-        if broadcaster_id is None:
-            # ユーザーが見つからない場合
+    def _run_notification_script(self, message: str, title: str) -> None:
+        """通知用のAppleScriptを実行する"""
+        try:
+            script_path = self.base_dir / "applescript" / "notification.applescript"
+            if not script_path.exists():
+                self._handle_script_not_found(script_path)
+
+            cmd = ["/usr/bin/osascript", str(script_path), message, title]
+            subprocess.run(cmd, check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"Notification failed: {e}", file=sys.stderr)
+
+    async def check_stream_status(self, username: str) -> None:
+        """配信状態を定期的にチェック"""
+        was_streaming = False
+
+        while self.is_running:
             try:
-                subprocess.run(
-                    ["/usr/bin/osascript", str(self.base_dir / "applescript" / "notfound")],
-                    check=True
-                )
-            except subprocess.CalledProcessError as e:
-                messagebox.showerror("エラー", f"通知の表示に失敗しました: {e}")
-        else:
-            # ユーザーが見つかった場合
-            try:
-                subprocess.run(
-                    ["/usr/bin/osascript", str(self.base_dir / "applescript" / "notification")],
-                    check=True
-                )
-            except subprocess.CalledProcessError as e:
-                messagebox.showerror("エラー", f"通知の表示に失敗しました: {e}")
+                stream_info = self.twitch_api.get_stream_by_name(username)
+                is_streaming = stream_info[0] is not None
+                print(f"Checking stream status: {username} - {is_streaming}")
 
-        self.root.destroy()
+                if is_streaming and not was_streaming:
+                    # 配信開始を検知
+                    message = f"{username} has started streaming: {stream_info[1]}"
+                    self._run_notification_script(message, "Stream Started")
+                    self.display_message(message)
+                    was_streaming = True
+                    await asyncio.sleep(300)  # 配信検知後は5分待機
+                elif not is_streaming:
+                    was_streaming = False
+                    await asyncio.sleep(60)  # 1分ごとにチェック
 
-def open_new_terminal():
-    try:
-        # osascriptをシェルを使用せずに実行
-        script = """
-        tell application "Terminal"
-            do script "echo StreamNotificationウィンドウで配信通知したいStreamerのユーザ名を入力してください。"
-            activate
-        end tell
-        """
-        subprocess.run(
-            ["/usr/bin/osascript", "-e", script],
-            check=True,
-            capture_output=True,
-            text=True
-        )
-    except subprocess.CalledProcessError as e:
-        print(f"ターミナルの起動に失敗しました: {e}", file=sys.stderr)
-        sys.exit(1)
+            except (subprocess.SubprocessError, OSError) as e:
+                print(f"Error checking stream status: {e}", file=sys.stderr)
+                await asyncio.sleep(60)
 
-def main():
-    # 新しいターミナルウィンドウを開く
-    open_new_terminal()
+    async def check_streamer_existence(self, username: str) -> bool:
+        """ストリーマーの存在確認"""
+        try:
+            # 待機メッセージを表示
+            self.display_message("Please wait a moment.")
 
-    # GUIアプリケーションの起動
+            broadcaster_id = self.twitch_api.get_broadcaster_id(username)
+            if broadcaster_id:
+                message = f"{username} found. You will be notified when the streaming starts."
+                self._run_notification_script(message, "Streamer Found")
+                self.display_message(message)
+                return True
+
+            # ストリーマーが見つからない場合
+            message = f"{username} not found."
+            self.display_message(message)
+            return False
+
+        except (subprocess.SubprocessError, OSError, ValueError) as e:
+            print(f"Error checking streamer existence: {e}", file=sys.stderr)
+            self.display_message("An error occurred while checking streamer.")
+            return False
+
+    def cleanup(self) -> None:
+        """アプリケーションのクリーンアップ処理"""
+        self.is_running = False
+
+    def handle_signal(self, _sig: int, _frame: Optional[object]) -> None:
+        """シグナルハンドラ"""
+        self.cleanup()
+        sys.exit(0)
+
+    async def run(self) -> None:
+        """メインの実行ループ"""
+        try:
+            # シグナルハンドラの設定
+            signal.signal(signal.SIGINT, self.handle_signal)
+
+            # 標準入力からユーザー名を読み取り
+            print("Enter Twitch username: ")
+            username = input().strip()
+            if not username:
+                return
+
+            # ストリーマーの存在確認
+            if not await self.check_streamer_existence(username):
+                return
+
+            # 配信状態の監視を開始
+            await self.check_stream_status(username)
+
+        except (KeyboardInterrupt, subprocess.SubprocessError, OSError) as e:
+            print(f"An error occurred: {e}", file=sys.stderr)
+            self.cleanup()
+
+
+def main() -> None:
     app = StreamNotificationApp()
-    app.root.mainloop()
+    asyncio.run(app.run())
+
 
 if __name__ == "__main__":
     main()

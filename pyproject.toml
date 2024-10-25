@@ -13,6 +13,7 @@ greenlet = "3.0.3"
 ruff = "^0.6.5"
 mypy = "^1.11.2"
 nuitka = "^2.4.10"
+pytk = "^0.0.2.1"
 
 ############
 # mypyの設定
@@ -78,6 +79,7 @@ target-version = "py311"
     "S603",
     "T201",
     "TRY002",
+    "TRY300",
 ]
 
 [tool.ruff.lint.pydocstyle]
