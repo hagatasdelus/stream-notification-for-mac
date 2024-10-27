@@ -1,4 +1,5 @@
 import asyncio
+import os
 import signal
 import subprocess
 import sys
@@ -8,9 +9,16 @@ from typing import NoReturn, Optional
 from regular_execution.twitch import TwitchAPI
 
 
+def get_base_path():
+    """実行ファイルのベースパスを取得"""
+    if "__compiled__" in globals():
+        return Path(os.path.dirname(os.path.realpath(sys.argv[0])))
+    return Path(__file__).parent.resolve()
+
+
 class StreamNotificationApp:
     def __init__(self):
-        self.base_dir = Path(__file__).parent.resolve()
+        self.base_dir = get_base_path() # Path(__file__).parent.resolve()
         self.twitch_api = TwitchAPI()
         self.is_running = True
 
@@ -99,10 +107,10 @@ class StreamNotificationApp:
             signal.signal(signal.SIGINT, self.handle_signal)
 
             # 標準入力からユーザー名を読み取り
-            print("Enter Twitch username: ")
-            username = input().strip()
-            if not username:
-                return
+            while True:
+                username = input("Enter Twitch username: ").strip()
+                if username:
+                    break
 
             # ストリーマーの存在確認
             if not await self.check_streamer_existence(username):
@@ -115,8 +123,27 @@ class StreamNotificationApp:
             print(f"An error occurred: {e}", file=sys.stderr)
             self.cleanup()
 
+def launch_terminal():
+    """新しいターミナルウィンドウを開いてスクリプトを実行"""
+    base_path = get_base_path()
+    # script_path = base_path / "main"
+
+    # 新しいターミナルを開くAppleScript
+    terminal_script = f"""
+    tell application "Terminal"
+        activate
+        do script "cd '{base_path}' && ./main --no-terminal"
+    end tell
+    """
+    subprocess.run(["/usr/bin/osascript", "-e", terminal_script], check=True)
 
 def main() -> None:
+    # コマンドライン引数をチェック
+    if "--no-terminal" not in sys.argv and "__compiled__" in globals():
+        # バンドル化されている場合と通常実行の場合で処理を分ける
+        launch_terminal()
+        return
+
     app = StreamNotificationApp()
     asyncio.run(app.run())
 
