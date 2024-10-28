@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import NoReturn
 
 from regular_execution.logger import get_logger
+from regular_execution.stream_status import StreamStatus
 from regular_execution.twitch import TwitchAPI
 
 logger = get_logger(__name__)
@@ -33,6 +34,12 @@ class StreamNotificationApp:
         """メッセージを現在のターミナルに表示"""
         print(message)
 
+    def format_display_message(self, username: str, display_name: str, stream_title: str) -> str:
+        base_format = f" has started streaming: {stream_title}"
+        if username == display_name:
+            return display_name + base_format
+        return f"{display_name}({username})"+ base_format
+
     def _run_notification_script(self, message: str, title: str) -> None:
         """通知用のAppleScriptを実行する"""
         try:
@@ -42,32 +49,30 @@ class StreamNotificationApp:
 
             cmd = ["/usr/bin/osascript", str(script_path), message, title]
             subprocess.run(cmd, check=True)
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            print(f"Notification failed: {e}", file=sys.stderr)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            logger.exception("Notification failed")
 
     async def check_stream_status(self, username: str) -> None:
         """配信状態を定期的にチェック"""
-        was_streaming = False
-
         while self.is_running:
             try:
-                stream_info = self.twitch_api.get_stream_by_name(username)
-                is_streaming = stream_info[0] is not None
-                print(f"Checking stream status: {username} - {is_streaming}")
+                display_name, stream_title = self.twitch_api.get_stream_by_name(username)
 
-                if is_streaming and not was_streaming:
+                is_streaming = stream_title is not None
+                status_message = StreamStatus.STREAMING if is_streaming else StreamStatus.NOTSTREAMING
+                logger.info("Checking stream status: %s - %s", username, status_message.value.title())
+
+                if display_name and stream_title:
                     # 配信開始を検知
-                    message = f"{username} has started streaming: {stream_info[1]}"
+                    message = self.format_display_message(username, display_name, stream_title)
                     self._run_notification_script(message, "Stream Started")
                     self.display_message(message)
-                    was_streaming = True
                     await asyncio.sleep(3600)  # 配信検知後は1時間待機
-                elif not is_streaming:
-                    was_streaming = False
+                else:
                     await asyncio.sleep(60)  # 1分ごとにチェック
 
-            except (subprocess.SubprocessError, OSError) as e:
-                print(f"Error checking stream status: {e}", file=sys.stderr)
+            except (subprocess.SubprocessError, OSError):
+                logger.exception("Error checking stream status")
                 await asyncio.sleep(60)
 
     async def check_streamer_existence(self, username: str) -> bool:
@@ -88,8 +93,8 @@ class StreamNotificationApp:
             self.display_message(message)
             return False
 
-        except (subprocess.SubprocessError, OSError, ValueError) as e:
-            print(f"Error checking streamer existence: {e}", file=sys.stderr)
+        except (subprocess.SubprocessError, OSError, ValueError):
+            logger.exception("Error checking streamer existence")
             self.display_message("An error occurred while checking streamer.")
             return False
 
@@ -121,8 +126,8 @@ class StreamNotificationApp:
             # 配信状態の監視を開始
             await self.check_stream_status(username)
 
-        except (KeyboardInterrupt, subprocess.SubprocessError, OSError) as e:
-            print(f"An error occurred: {e}", file=sys.stderr)
+        except (KeyboardInterrupt, subprocess.SubprocessError, OSError):
+            logger.exception("An error occurred")
             self.cleanup()
 
 def launch_terminal():
