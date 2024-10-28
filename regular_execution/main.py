@@ -4,10 +4,12 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
-from typing import NoReturn, Optional
+from typing import NoReturn
 
+from regular_execution.logger import get_logger
 from regular_execution.twitch import TwitchAPI
 
+logger = get_logger(__name__)
 
 def get_base_path():
     """実行ファイルのベースパスを取得"""
@@ -18,7 +20,7 @@ def get_base_path():
 
 class StreamNotificationApp:
     def __init__(self):
-        self.base_dir = get_base_path() # Path(__file__).parent.resolve()
+        self.base_dir = get_base_path()
         self.twitch_api = TwitchAPI()
         self.is_running = True
 
@@ -59,7 +61,7 @@ class StreamNotificationApp:
                     self._run_notification_script(message, "Stream Started")
                     self.display_message(message)
                     was_streaming = True
-                    await asyncio.sleep(300)  # 配信検知後は5分待機
+                    await asyncio.sleep(3600)  # 配信検知後は1時間待機
                 elif not is_streaming:
                     was_streaming = False
                     await asyncio.sleep(60)  # 1分ごとにチェック
@@ -95,7 +97,7 @@ class StreamNotificationApp:
         """アプリケーションのクリーンアップ処理"""
         self.is_running = False
 
-    def handle_signal(self, _sig: int, _frame: Optional[object]) -> None:
+    def handle_signal(self, _sig: int, _frame: object | None) -> None:
         """シグナルハンドラ"""
         self.cleanup()
         sys.exit(0)
@@ -126,16 +128,20 @@ class StreamNotificationApp:
 def launch_terminal():
     """新しいターミナルウィンドウを開いてスクリプトを実行"""
     base_path = get_base_path()
-    # script_path = base_path / "main"
 
-    # 新しいターミナルを開くAppleScript
-    terminal_script = f"""
-    tell application "Terminal"
-        activate
-        do script "cd '{base_path}' && ./main --no-terminal"
-    end tell
-    """
-    subprocess.run(["/usr/bin/osascript", "-e", terminal_script], check=True)
+    script_path = Path(__file__).parent / "applescript" / "launch_terminal.applescript"
+
+    try:
+        with open(script_path, "r") as file:
+            script_content = file.read().replace("{{base_path}}", str(base_path))
+
+        subprocess.run(["/usr/bin/osascript", "-e", script_content], check=True)
+
+    except FileNotFoundError:
+        logger.exception("AppleScript file not found")
+    except subprocess.CalledProcessError:
+        logger.exception("Failed to execute AppleScript")
+
 
 def main() -> None:
     # コマンドライン引数をチェック
