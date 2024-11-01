@@ -6,7 +6,7 @@ from typing import Any
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
 
-from regular_execution import CLIENT_ID, CLIENT_SECRET
+from src import CLIENT_ID, CLIENT_SECRET
 
 logger = logging.getLogger(__name__)
 

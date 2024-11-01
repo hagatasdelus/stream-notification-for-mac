@@ -8,9 +8,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator, NoReturn
 
-from regular_execution.logger import get_logger
-from regular_execution.stream_status import StreamStatus
-from regular_execution.twitch import TwitchAPI, TwitchAPIError
+from src.logger import get_logger
+from src.stream_status import StreamStatus
+from src.twitch import TwitchAPI, TwitchAPIError
 
 logger = get_logger(__name__)
 
