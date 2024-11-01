@@ -20,9 +20,6 @@ def get_base_path() -> Path:
         return Path(os.path.dirname(os.path.realpath(sys.argv[0])))
     return Path(__file__).parent.resolve()
 
-class NotificationError(Exception):
-    """通知関連の例外"""
-
 class StreamNotificationApp:
     def __init__(self):
         self.base_dir = get_base_path()
@@ -69,7 +66,7 @@ class StreamNotificationApp:
             )
             await proc.communicate()
 
-        except (subprocess.SubprocessError, FileNotFoundError, NotificationError):
+        except (subprocess.SubprocessError, FileNotFoundError):
             logger.exception("Notification failed")
             await self.display_message("Failed to send notification")
 
@@ -196,26 +193,10 @@ async def launch_terminal() -> None:
     """新しいターミナルウィンドウを非同期に開く"""
     base_path = get_base_path()
     script_path = Path(__file__).parent  / "applescript" / "launch_terminal.applescript"
-
+    cmd = ["/usr/bin/osascript", str(script_path), str(base_path)]
     try:
-        # async with aiofiles.open(script_path, mode="r") as file:
-        #     script_content = (await file.read()).replace("{{base_path}}", str(base_path))
-
-        # cmd = ["/usr/bin/osascript", "-e", str(script_content)]
-        # terminal_script = f"""
-        #     tell application "Terminal"
-        #     activate
-        #     do script "cd '{base_path}' && ./main --no-terminal"
-        # end tell
-        # """
-
         proc = await asyncio.create_subprocess_exec(
-            "/usr/bin/osascript",
-            # "-e",
-            # script_content,
-            str(script_path),
-            str(base_path),
-            # terminal_script,
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
