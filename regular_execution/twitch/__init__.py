@@ -1,5 +1,6 @@
-from .twitch import TwitchAPI
+from .twitch import TwitchAPI, TwitchAPIError
 
 __all__ = [
     "TwitchAPI",
+    "TwitchAPIError",
 ]
