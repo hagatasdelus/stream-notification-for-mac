@@ -7,21 +7,16 @@ import aiohttp
 from aiohttp import ClientSession, ClientTimeout
 
 from src import CLIENT_ID, CLIENT_SECRET
+from src.constants import AppConstant
 
 logger = logging.getLogger(__name__)
-
-# エラーメッセージの定義
-ERROR_SESSION_NOT_INITIALIZED = "Session not initialized"
-ERROR_ACCESS_TOKEN_NOT_AVAILABLE = "Access token not available" # noqa: S105
-ERROR_ACCESS_TOKEN_FAILED = "Failed to get access token" # noqa: S105
-ERROR_API_REQUEST_FAILED = "API request failed"
 
 class TwitchAPIError(Exception):
     """TwitchAPI関連の例外"""
 
 class TwitchAPI:
     base_url = "https://api.twitch.tv/helix/"
-    timeout = ClientTimeout(total=10)  # 10秒のタイムアウト
+    timeout = ClientTimeout(total=AppConstant.TIMEOUT_SECONDS)  # 10秒のタイムアウト
 
     def __init__(self):
         self.client_id = CLIENT_ID
@@ -52,13 +47,15 @@ class TwitchAPI:
     async def _get_access_token(self) -> None:
         """Twitchのアクセストークンを取得"""
         if not self.session:
-            raise TwitchAPIError(ERROR_SESSION_NOT_INITIALIZED)
+            raise TwitchAPIError(
+                AppConstant.ERROR_SESSION_NOT_INITIALIZED
+            )
 
         url = "https://id.twitch.tv/oauth2/token"
         params = {
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "grant_type": "client_credentials",
+            "grant_type": AppConstant.GRANT_TYPE,
         }
 
         try:
@@ -67,14 +64,16 @@ class TwitchAPI:
                 data = await response.json()
                 self.access_token = data["access_token"]
         except aiohttp.ClientError as e:
-            logger.exception(ERROR_ACCESS_TOKEN_FAILED)
-            error_msg = f"{ERROR_ACCESS_TOKEN_FAILED}: {str(e)}"
+            logger.exception(AppConstant.ERROR_ACCESS_TOKEN_FAILED)
+            error_msg = f"{AppConstant.ERROR_ACCESS_TOKEN_FAILED}: {str(e)}"
             raise TwitchAPIError(error_msg) from e
 
     def _get_headers(self) -> dict[str, str]:
         """APIリクエストのヘッダーを生成"""
         if not self.access_token:
-            raise TwitchAPIError(ERROR_ACCESS_TOKEN_NOT_AVAILABLE)
+            raise TwitchAPIError(
+                AppConstant.ERROR_ACCESS_TOKEN_NOT_AVAILABLE
+            )
 
         return {
             "Client-ID": self.client_id,
@@ -85,7 +84,9 @@ class TwitchAPI:
     async def _make_request(self, url: str, query_params: dict[str, Any] | None = None):
         """APIリクエストの実行を管理するコンテキストマネージャ"""
         if not self.session:
-            raise TwitchAPIError(ERROR_SESSION_NOT_INITIALIZED)
+            raise TwitchAPIError(
+                AppConstant.ERROR_SESSION_NOT_INITIALIZED
+            )
 
         await self._ensure_access_token()
 
@@ -97,8 +98,8 @@ class TwitchAPI:
             ) as response:
                 yield response
         except aiohttp.ClientError as e:
-            logger.exception(ERROR_API_REQUEST_FAILED)
-            error_msg = f"{ERROR_API_REQUEST_FAILED}: {str(e)}"
+            logger.exception(AppConstant.ERROR_API_REQUEST_FAILED)
+            error_msg = f"{AppConstant.ERROR_API_REQUEST_FAILED}: {str(e)}"
             raise TwitchAPIError(error_msg) from e
 
     async def _get_response(

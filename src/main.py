@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator, NoReturn
 
+from src.constants import AppConstant
 from src.logger import get_logger
 from src.stream_status import StreamStatus
 from src.twitch import TwitchAPI, TwitchAPIError
@@ -72,9 +73,6 @@ class StreamNotificationApp:
 
     async def check_stream_status(self, username: str) -> None:
         """配信状態を定期的にチェック"""
-        check_interval = 60  # 通常の確認間隔（秒）
-        streaming_interval = 3600  # 配信中の確認間隔（秒）
-
         while self.is_running:
             try:
                 display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
@@ -91,16 +89,16 @@ class StreamNotificationApp:
                     message = self.format_display_message(username, display_name, stream_title)
                     await self._run_notification_script(message, "Stream Started")
                     await self.display_message(message)
-                    await asyncio.sleep(streaming_interval)
+                    await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
                 else:
-                    await asyncio.sleep(check_interval)
+                    await asyncio.sleep(AppConstant.CHECK_INTERVAL)
 
             except TwitchAPIError:
                 logger.exception("Failed to check stream status")
-                await asyncio.sleep(check_interval)
+                await asyncio.sleep(AppConstant.CHECK_INTERVAL)
             except Exception:
                 logger.exception("Unexpected error while checking stream status")
-                await asyncio.sleep(check_interval)
+                await asyncio.sleep(AppConstant.CHECK_INTERVAL)
 
     async def check_streamer_existence(self, username: str) -> bool:
         """ストリーマーの存在確認"""
@@ -161,7 +159,6 @@ class StreamNotificationApp:
 
                 # ユーザー名の入力
                 while True:
-
                         # SIGINTを無視する
                         signal.signal(signal.SIGINT, signal.SIG_IGN)
                         username = await asyncio.get_event_loop().run_in_executor(
@@ -217,7 +214,6 @@ async def async_main() -> None:
     await app.run()
 
 def main() -> None:
-    """エントリーポイント"""
     try:
         asyncio.run(async_main())
     except Exception:
