@@ -5,7 +5,7 @@ class AppConstant(StrictConstant):
     """
     アプリケーション全体で使用する定数を定義するクラス
     """
-    # エラーメッセージ
+    # Twitch API関連
     CHECK_INTERVAL: int = 60  # 通常の確認間隔（秒）
     STREAMING_INTERVAL: int = 3600  # 配信中の確認間隔（秒）
 
