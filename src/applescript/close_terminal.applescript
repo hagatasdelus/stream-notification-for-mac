@@ -1,7 +1,8 @@
 tell application "Terminal"
-    tell front window
-        do script "exit" in selected tab
-        delay 1 -- 少し待ってからウィンドウを閉じる
-        close
+    tell front window       
+        set currentTab to selected tab
+        do script "cd ${HOME}; clear" in currentTab
+        delay 1
+        close saving no
     end tell
 end tell
