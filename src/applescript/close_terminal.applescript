@@ -3,6 +3,6 @@ tell application "Terminal"
         set currentTab to selected tab
         do script "cd ${HOME}; clear" in currentTab
         delay 1
-        close saving no
+        close
     end tell
 end tell
