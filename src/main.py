@@ -27,6 +27,7 @@ class StreamNotificationApp:
         self.twitch_api = TwitchAPI()
         self.is_running = True
         self._cleanup_tasks: list[asyncio.Task] = []
+        self.cleanup_compelete_event = asyncio.Event()
 
     @asynccontextmanager
     async def initialize(self) -> AsyncIterator["StreamNotificationApp"]:
@@ -125,6 +126,30 @@ class StreamNotificationApp:
             await self.display_message("An unexpected error occurred.")
             return False
 
+    async def close_terminal(self) -> None:
+        try:
+            script_path = self.base_dir / "applescript" / "close_terminal.applescript"
+            if not script_path.exists():
+                print("Script not found")
+                self._handle_script_not_found(script_path)
+            print("Closing terminal window...")
+            cmd = ["/usr/bin/osascript", str(script_path)]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            print("Waiting for terminal window to close...")
+            stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                logger.error("Failed to close terminal window: %s", stderr.decode())
+                if stderr:
+                    logger.error("Error output: %s", stderr.decode())
+        except FileNotFoundError:
+            logger.exception("AppleScript file not found")
+        except subprocess.SubprocessError:
+            logger.exception("Failed to close terminal window")
+
     async def cleanup(self) -> None:
         """アプリケーションのクリーンアップ処理"""
         if not self.is_running:
@@ -141,7 +166,10 @@ class StreamNotificationApp:
 
         # Twitchクライアントのクリーンアップ
         await self.twitch_api.close()
+
         logger.info("Application cleanup completed")
+        self.cleanup_compelete_event.set()
+
 
     def handle_signal(self, _sig: int, _frame: object | None) -> None:
         """シグナルハンドラ"""
@@ -206,19 +234,18 @@ async def launch_terminal() -> None:
 
 async def async_main() -> None:
     """非同期メイン関数"""
+    app = StreamNotificationApp()
     if "--no-terminal" not in sys.argv and "__compiled__" in globals():
         await launch_terminal()
         return
-
-    app = StreamNotificationApp()
-    await app.run()
+    run_task = asyncio.create_task(app.run())
+    await run_task
+    await app.cleanup_compelete_event.wait()
+    await app.close_terminal()
 
 def main() -> None:
-    try:
-        asyncio.run(async_main())
-    except Exception:
-        logger.exception("Fatal error")
-        sys.exit(1)
+    asyncio.run(async_main())
 
 if __name__ == "__main__":
     main()
+    print("owari")
