@@ -8,5 +8,5 @@
 
 3. `
 python -m nuitka --standalone --follow-imports --macos-create-app-bundle --macos-app-name="StreamNotification" --output-dir=../build --include-data-dir=./applesc
-ript=applescript --include-data-files=.env=../.env --macos-app-icon=../AppIcon.icns main.py
+ript=applescript --include-data-files=../.env=.env --macos-app-icon=../AppIcon.icns main.py
 `
