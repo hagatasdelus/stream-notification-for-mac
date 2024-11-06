@@ -126,6 +126,24 @@ class StreamNotificationApp:
             await self.display_message("An unexpected error occurred.")
             return False
 
+    async def launch_terminal(self) -> None:
+        """新しいターミナルウィンドウを非同期に開く"""
+        base_path = get_base_path()
+        script_path = Path(__file__).parent  / "applescript" / "launch_terminal.applescript"
+        cmd = ["/usr/bin/osascript", str(script_path), str(base_path)]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+
+        except FileNotFoundError:
+            logger.exception("AppleScript file not found")
+        except subprocess.SubprocessError:
+            logger.exception("Failed to execute AppleScript")
+
     async def close_terminal(self) -> None:
         try:
             script_path = self.base_dir / "applescript" / "close_terminal.applescript"
@@ -214,37 +232,21 @@ class StreamNotificationApp:
             finally:
                 await self.cleanup()
 
-async def launch_terminal() -> None:
-    """新しいターミナルウィンドウを非同期に開く"""
-    base_path = get_base_path()
-    script_path = Path(__file__).parent  / "applescript" / "launch_terminal.applescript"
-    cmd = ["/usr/bin/osascript", str(script_path), str(base_path)]
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        await proc.communicate()
-
-    except FileNotFoundError:
-        logger.exception("AppleScript file not found")
-    except subprocess.SubprocessError:
-        logger.exception("Failed to execute AppleScript")
-
-async def async_main() -> None:
+async def main() -> None:
     """非同期メイン関数"""
     app = StreamNotificationApp()
-    if "--no-terminal" not in sys.argv and "__compiled__" in globals():
-        await launch_terminal()
+    if is_compiled():
+        await app.launch_terminal()
         return
     run_task = asyncio.create_task(app.run())
     await run_task
     await app.cleanup_compelete_event.wait()
-    await app.close_terminal()
+    if is_compiled():
+        await app.close_terminal()
 
-def main() -> None:
-    asyncio.run(async_main())
+def is_compiled() -> bool:
+    """アプリケーションがバンドル化されているかどうかを判定"""
+    return "__compiled__" in globals()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
