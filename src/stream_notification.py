@@ -192,6 +192,7 @@ class StreamNotificationApp:
     def handle_signal(self, _sig: int, _frame: object | None) -> None:
         """シグナルハンドラ"""
         print("\nPlease wait a moment, terminating the application...")
+        print("Do not change the currently selected tab in the terminal.")
         loop = asyncio.get_event_loop()
         loop.create_task(self.cleanup())
 
@@ -235,7 +236,7 @@ class StreamNotificationApp:
 async def main() -> None:
     """非同期メイン関数"""
     app = StreamNotificationApp()
-    if is_compiled():
+    if "--no-terminal" not in sys.argv and is_compiled():
         await app.launch_terminal()
         return
     run_task = asyncio.create_task(app.run())
@@ -245,7 +246,7 @@ async def main() -> None:
         await app.close_terminal()
 
 def is_compiled() -> bool:
-    """アプリケーションがバンドル化されているかどうかを判定"""
+    """アプリケーションがバンドル化されているか確認"""
     return "__compiled__" in globals()
 
 if __name__ == "__main__":
