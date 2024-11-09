@@ -148,7 +148,6 @@ class StreamNotificationApp:
         try:
             script_path = self.base_dir / "applescript" / "close_terminal.applescript"
             if not script_path.exists():
-                print("Script not found")
                 self._handle_script_not_found(script_path)
             print("Closing terminal window...")
             cmd = ["/usr/bin/osascript", str(script_path)]
@@ -157,7 +156,6 @@ class StreamNotificationApp:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            print("Waiting for terminal window to close...")
             stdout, stderr = await proc.communicate()
             if proc.returncode != 0:
                 logger.error("Failed to close terminal window: %s", stderr.decode())
@@ -233,6 +231,10 @@ class StreamNotificationApp:
             finally:
                 await self.cleanup()
 
+def is_compiled() -> bool:
+    """アプリケーションがバンドル化されているか確認"""
+    return "__compiled__" in globals()
+
 async def main() -> None:
     """非同期メイン関数"""
     app = StreamNotificationApp()
@@ -244,10 +246,6 @@ async def main() -> None:
     await app.cleanup_compelete_event.wait()
     if is_compiled():
         await app.close_terminal()
-
-def is_compiled() -> bool:
-    """アプリケーションがバンドル化されているか確認"""
-    return "__compiled__" in globals()
 
 if __name__ == "__main__":
     asyncio.run(main())
