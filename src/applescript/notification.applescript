@@ -1,5 +1,5 @@
 on run argv
-    set message to item 1 of argv
-    set title to item 2 of argv
-    display notification message with title title with icon
+	set message to item 1 of argv
+	set title to item 2 of argv
+	display notification message with title title sound name "Submarine"
 end run
