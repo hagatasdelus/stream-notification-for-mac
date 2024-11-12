@@ -6,8 +6,15 @@ import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+# from InquirerPy.separator import Separator
 from typing import AsyncIterator, NoReturn
 
+from InquirerPy import inquirer
+from prompt_toolkit.validation import ValidationError, Validator
+
+# from prompt_toolkit.shortcuts import radiolist_dialog
+# from prompt_toolkit.styles import Style
 from src.constants import AppConstant
 from src.logger import get_logger
 from src.stream_status import StreamStatus
@@ -15,11 +22,21 @@ from src.twitch import TwitchAPI, TwitchAPIError
 
 logger = get_logger(__name__)
 
+# username = inquirer.text(message="Enter Twitch username: ").execute()
 def get_base_path() -> Path:
     """実行ファイルのベースパスを取得"""
     if "__compiled__" in globals():
         return Path(os.path.dirname(os.path.realpath(sys.argv[0])))
     return Path(__file__).parent.resolve()
+
+class UsernameValidator(Validator):
+    """ユーザー名のバリデーション"""
+    def validate(self, document) -> None:
+        """ユーザー名のバリデーション"""
+        if not document.text:
+            raise ValidationError(message="Username cannot be empty", cursor_position=len(document.text))
+        if not document.text.isalnum():
+            raise ValidationError(message="Username must be alphanumeric", cursor_position=len(document.text))
 
 class StreamNotificationApp:
     def __init__(self):
@@ -203,26 +220,49 @@ class StreamNotificationApp:
                     signal.signal(sig, self.handle_signal)
 
                 # ユーザー名の入力
-                while True:
-                        # SIGINTを無視する
-                        signal.signal(signal.SIGINT, signal.SIG_IGN)
-                        username = await asyncio.get_event_loop().run_in_executor(
-                            None, lambda: input("Enter Twitch username: ")
-                        )
-                        # SIGINTハンドラを元に戻す
-                        signal.signal(signal.SIGINT, self.handle_signal)
-                        username = username.strip()
-                        if username:
-                            break
+                # while True:
+                #         # SIGINTを無視する
+                #         signal.signal(signal.SIGINT, signal.SIG_IGN)
+                #         username = await asyncio.get_event_loop().run_in_executor(
+                #             None, lambda: input("Enter Twitch username: ")
+                #         )
+                #         # SIGINTハンドラを元に戻す
+                #         signal.signal(signal.SIGINT, self.handle_signal)
+                #         username = username.strip()
+                #         if username:
+                #             break
+                signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+                username = await inquirer.text(
+                    message="Which streamer do you want to monitor?",
+                    validate=UsernameValidator(),
+                    instruction="[Not display name]",
+                    style=AppConstant.CUSTOM_STYLE
+                ).execute_async()
+
+                display_format = await inquirer.select(
+                    message="Which notification method do you want to use?",
+                    choices=["Notification", "Dialog"],
+                    instruction="[Use arrows to move]",
+                    style=AppConstant.CUSTOM_STYLE
+                ).execute_async()
+
+                signal.signal(signal.SIGINT, self.handle_signal)
+
+                if display_format == "dialog":
+                    print("Dialog format is selected.")
+                elif display_format == "notification":
+                    print("Notification format is selected.")
 
                 # ストリーマーの存在確認
-                if not await self.check_streamer_existence(username):
-                    return
+                if username:
+                    if not await self.check_streamer_existence(username):
+                        return
 
                 # 配信状態の監視を開始
-                status_task = asyncio.create_task(self.check_stream_status(username))
-                self._cleanup_tasks.append(status_task)
-                await status_task
+                    status_task = asyncio.create_task(self.check_stream_status(username))
+                    self._cleanup_tasks.append(status_task)
+                    await status_task
 
             except asyncio.CancelledError:
                 logger.info("Application shutdown requested")

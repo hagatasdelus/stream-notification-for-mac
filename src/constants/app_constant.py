@@ -1,3 +1,5 @@
+from InquirerPy.utils import get_style
+
 from .strict_constant import StrictConstant
 
 
@@ -17,3 +19,13 @@ class AppConstant(StrictConstant):
     ERROR_ACCESS_TOKEN_NOT_AVAILABLE: str = "Access token not available" # noqa: S105
     ERROR_ACCESS_TOKEN_FAILED: str = "Failed to get access token" # noqa: S105
     ERROR_API_REQUEST_FAILED: str = "API request failed"
+
+    STYLE = {
+        "questionmark": "#a7e22e bold",  # ?マークの色
+        "instruction": "#56abb9",  # 説明文の色
+        "answer": "#65daef bold",  # 選択された項目の色
+        "selected": "#65daef",     # 現在選択中の項目の色
+        "input": "#6ce1ff"
+    }
+
+    CUSTOM_STYLE = get_style(style=STYLE, style_override=False)

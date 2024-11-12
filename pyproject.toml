@@ -21,6 +21,8 @@ aiohttp = "^3.10.10"
 ############
 
 # https://mypy.readthedocs.io/en/stable/config_file.html
+prompt-toolkit = "^3.0.48"
+inquirerpy = "^0.3.4"
 
 [tool.poetry.group.dev.dependencies]
 
