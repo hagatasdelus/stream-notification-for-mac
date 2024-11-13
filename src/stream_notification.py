@@ -35,7 +35,7 @@ class UsernameValidator(Validator):
         """ユーザー名のバリデーション"""
         if not document.text:
             raise ValidationError(message="Username cannot be empty", cursor_position=len(document.text))
-        if not document.text.isalnum():
+        if not document.text.isalnum() or not document.text.isascii():
             raise ValidationError(message="Username must be alphanumeric", cursor_position=len(document.text))
 
 class StreamNotificationApp:
@@ -214,48 +214,31 @@ class StreamNotificationApp:
     async def run(self) -> None:
         """メインの実行ループ"""
         async with self.initialize():
+            original_sigint_handler = signal.getsignal(signal.SIGINT)
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+
             try:
-                # シグナルハンドラの設定
-                for sig in (signal.SIGINT, signal.SIGTERM):
-                    signal.signal(sig, self.handle_signal)
-
-                # ユーザー名の入力
-                # while True:
-                #         # SIGINTを無視する
-                #         signal.signal(signal.SIGINT, signal.SIG_IGN)
-                #         username = await asyncio.get_event_loop().run_in_executor(
-                #             None, lambda: input("Enter Twitch username: ")
-                #         )
-                #         # SIGINTハンドラを元に戻す
-                #         signal.signal(signal.SIGINT, self.handle_signal)
-                #         username = username.strip()
-                #         if username:
-                #             break
-                signal.signal(signal.SIGINT, signal.SIG_IGN)
-
                 username = await inquirer.text(
                     message="Which streamer do you want to monitor?",
                     validate=UsernameValidator(),
-                    instruction="[Not display name]",
+                    instruction="[Enter username, not display name]",
                     style=AppConstant.CUSTOM_STYLE
                 ).execute_async()
 
-                display_format = await inquirer.select(
+                display_format = await inquirer.fuzzy(
                     message="Which notification method do you want to use?",
                     choices=["Notification", "Dialog"],
-                    instruction="[Use arrows to move]",
-                    style=AppConstant.CUSTOM_STYLE
+                    instruction="[Use arrows to move, type to filter]",
+                    style=AppConstant.CUSTOM_STYLE,
                 ).execute_async()
 
+                # 元のSIGINTハンドラを復元
+                signal.signal(signal.SIGINT, original_sigint_handler)
+                # SIGINTハンドラを設定｀
                 signal.signal(signal.SIGINT, self.handle_signal)
 
-                if display_format == "dialog":
-                    print("Dialog format is selected.")
-                elif display_format == "notification":
-                    print("Notification format is selected.")
-
                 # ストリーマーの存在確認
-                if username:
+                if username and display_format:
                     if not await self.check_streamer_existence(username):
                         return
 
@@ -264,7 +247,7 @@ class StreamNotificationApp:
                     self._cleanup_tasks.append(status_task)
                     await status_task
 
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, KeyboardInterrupt):
                 logger.info("Application shutdown requested")
             except Exception:
                 logger.exception("Unexpected error in main loop")
