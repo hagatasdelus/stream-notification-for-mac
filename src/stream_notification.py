@@ -1,20 +1,15 @@
 import asyncio
 import contextlib
 import os
-import signal
 import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-
-# from InquirerPy.separator import Separator
 from typing import AsyncIterator, NoReturn
 
 from InquirerPy import inquirer
 from prompt_toolkit.validation import ValidationError, Validator
 
-# from prompt_toolkit.shortcuts import radiolist_dialog
-# from prompt_toolkit.styles import Style
 from src.constants import AppConstant
 from src.logger import get_logger
 from src.stream_status import StreamStatus
@@ -214,28 +209,20 @@ class StreamNotificationApp:
     async def run(self) -> None:
         """メインの実行ループ"""
         async with self.initialize():
-            original_sigint_handler = signal.getsignal(signal.SIGINT)
-            signal.signal(signal.SIGINT, signal.SIG_IGN)
-
             try:
-                username = await inquirer.text(
+                username = await inquirer.text( # type: ignore
                     message="Which streamer do you want to monitor?",
                     validate=UsernameValidator(),
                     instruction="[Enter username, not display name]",
                     style=AppConstant.CUSTOM_STYLE
                 ).execute_async()
 
-                display_format = await inquirer.fuzzy(
+                display_format = await inquirer.fuzzy( # type: ignore
                     message="Which notification method do you want to use?",
                     choices=["Notification", "Dialog"],
                     instruction="[Use arrows to move, type to filter]",
                     style=AppConstant.CUSTOM_STYLE,
                 ).execute_async()
-
-                # 元のSIGINTハンドラを復元
-                signal.signal(signal.SIGINT, original_sigint_handler)
-                # SIGINTハンドラを設定｀
-                signal.signal(signal.SIGINT, self.handle_signal)
 
                 # ストリーマーの存在確認
                 if username and display_format:

@@ -62,6 +62,7 @@ lint.ignore = [
     "SLF001", # プライベートメンバーアクセス警告
     "E731",   # lambda式の代わりにdef使用警告
     "ARG005", # 未使用のlambdaラムダ引数警告
+    "PGH003", # type: ignore
 ]
 
 # Assume Python 3.11
