@@ -17,7 +17,6 @@ from src.twitch import TwitchAPI, TwitchAPIError
 
 logger = get_logger(__name__)
 
-# username = inquirer.text(message="Enter Twitch username: ").execute()
 def get_base_path() -> Path:
     """実行ファイルのベースパスを取得"""
     if "__compiled__" in globals():
@@ -84,7 +83,32 @@ class StreamNotificationApp:
             logger.exception("Notification failed")
             await self.display_message("Failed to send notification")
 
-    async def check_stream_status(self, username: str) -> None:
+    async def _run_dialog_script(self, message: str, title: str) -> None:
+        """ダイアログ表示用のAppleScriptを非同期に実行"""
+        try:
+            script_path = self.base_dir / "applescript" / "dialog.applescript"
+            if not script_path.exists():
+                self._handle_script_not_found(script_path)
+
+            cmd = [
+                "/usr/bin/osascript",
+                str(script_path),
+                message,
+                title,
+                str(self.base_dir / "Resources" / "AppIcon.icns")
+            ]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+
+        except (subprocess.SubprocessError, FileNotFoundError):
+            logger.exception("Dialog failed")
+            await self.display_message("Failed to display dialog")
+
+    async def check_stream_status(self, username: str, display_format: str) -> None:
         """配信状態を定期的にチェック"""
         while self.is_running:
             try:
@@ -100,7 +124,12 @@ class StreamNotificationApp:
 
                 if display_name and stream_title:
                     message = self.format_display_message(username, display_name, stream_title)
-                    await self._run_notification_script(message, "Stream Started")
+                    script_args = [message, "Stream Started"]
+                    if display_format == "Notification":
+                        await self._run_notification_script(*script_args)
+                    else:
+                        await self._run_dialog_script(*script_args)
+                    # await self._run_notification_script(message, "Stream Started")
                     await self.display_message(message)
                     await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
                 else:
@@ -113,7 +142,7 @@ class StreamNotificationApp:
                 logger.exception("Unexpected error while checking stream status")
                 await asyncio.sleep(AppConstant.CHECK_INTERVAL)
 
-    async def check_streamer_existence(self, username: str) -> bool:
+    async def check_streamer_existence(self, username: str, display_format: str) -> bool:
         """ストリーマーの存在確認"""
         try:
             await self.display_message("Please wait a moment.")
@@ -121,7 +150,13 @@ class StreamNotificationApp:
             broadcaster_id = await self.twitch_api.get_broadcaster_id(username)
             if broadcaster_id:
                 message = f"{username} found. You will be notified when the streaming starts."
-                await self._run_notification_script(message, "Streamer Found")
+                script_args = [message, "Streamer Found"]
+                if display_format == "Notification":
+                    await self._run_notification_script(*script_args)
+                else:
+                    await self._run_dialog_script(*script_args)
+                # await self._run_notification_script(message, "Streamer Found")
+
                 await self.display_message(message)
                 return True
 
@@ -226,11 +261,11 @@ class StreamNotificationApp:
 
                 # ストリーマーの存在確認
                 if username and display_format:
-                    if not await self.check_streamer_existence(username):
+                    if not await self.check_streamer_existence(username, display_format):
                         return
 
                 # 配信状態の監視を開始
-                    status_task = asyncio.create_task(self.check_stream_status(username))
+                    status_task = asyncio.create_task(self.check_stream_status(username, display_format))
                     self._cleanup_tasks.append(status_task)
                     await status_task
 
