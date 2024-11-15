@@ -67,13 +67,15 @@ class StreamNotificationApp:
     async def _run_notification_script(self, message: str, title: str) -> None:
         """通知用のAppleScriptを非同期に実行"""
         try:
-            script_path = self.base_dir / "applescript" / "notification.applescript"
+            script_path = Path(self.base_dir, "applescript", "notification.applescript")
             if not script_path.exists():
                 self._handle_script_not_found(script_path)
 
-            cmd = ["/usr/bin/osascript", str(script_path), message, title]
             proc = await asyncio.create_subprocess_exec(
-                *cmd,
+                "/usr/bin/osascript",
+                script_path,
+                message,
+                title,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -86,19 +88,18 @@ class StreamNotificationApp:
     async def _run_dialog_script(self, message: str, title: str) -> None:
         """ダイアログ表示用のAppleScriptを非同期に実行"""
         try:
-            script_path = self.base_dir / "applescript" / "dialog.applescript"
+            script_path = Path(self.base_dir, "applescript", "dialog.applescript")
             if not script_path.exists():
                 self._handle_script_not_found(script_path)
-
-            cmd = [
+            icon_path = "AppIcon.png"
+            if not self.is_compiled():
+                icon_path = os.path.join("..", icon_path)
+            proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/osascript",
-                str(script_path),
+                script_path,
                 message,
                 title,
-                str(self.base_dir / "Resources" / "AppIcon.icns")
-            ]
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
+                icon_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -129,7 +130,6 @@ class StreamNotificationApp:
                         await self._run_notification_script(*script_args)
                     else:
                         await self._run_dialog_script(*script_args)
-                    # await self._run_notification_script(message, "Stream Started")
                     await self.display_message(message)
                     await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
                 else:
@@ -155,7 +155,6 @@ class StreamNotificationApp:
                     await self._run_notification_script(*script_args)
                 else:
                     await self._run_dialog_script(*script_args)
-                # await self._run_notification_script(message, "Streamer Found")
 
                 await self.display_message(message)
                 return True
@@ -175,12 +174,12 @@ class StreamNotificationApp:
 
     async def launch_terminal(self) -> None:
         """新しいターミナルウィンドウを非同期に開く"""
-        base_path = get_base_path()
-        script_path = Path(__file__).parent  / "applescript" / "launch_terminal.applescript"
-        cmd = ["/usr/bin/osascript", str(script_path), str(base_path)]
+        script_path = Path(self.base_dir, "applescript", "launch_terminal.applescript")
         try:
             proc = await asyncio.create_subprocess_exec(
-                *cmd,
+                "/usr/bin/osascript",
+                script_path,
+                self.base_dir,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -193,13 +192,13 @@ class StreamNotificationApp:
 
     async def close_terminal(self) -> None:
         try:
-            script_path = self.base_dir / "applescript" / "close_terminal.applescript"
+            script_path = Path(self.base_dir, "applescript", "close_terminal.applescript")
             if not script_path.exists():
                 self._handle_script_not_found(script_path)
             print("Closing terminal window...")
-            cmd = ["/usr/bin/osascript", str(script_path)]
             proc = await asyncio.create_subprocess_exec(
-                *cmd,
+                "/usr/bin/osascript",
+                script_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -276,20 +275,20 @@ class StreamNotificationApp:
             finally:
                 await self.cleanup()
 
-def is_compiled() -> bool:
-    """アプリケーションがバンドル化されているか確認"""
-    return "__compiled__" in globals()
+    def is_compiled(self) -> bool:
+        """アプリケーションがバンドル化されているか確認"""
+        return "__compiled__" in globals()
 
 async def main() -> None:
     """非同期メイン関数"""
     app = StreamNotificationApp()
-    if "--no-terminal" not in sys.argv and is_compiled():
+    if "--no-terminal" not in sys.argv and app.is_compiled():
         await app.launch_terminal()
         return
     run_task = asyncio.create_task(app.run())
     await run_task
     await app.cleanup_compelete_event.wait()
-    if is_compiled():
+    if app.is_compiled():
         await app.close_terminal()
 
 if __name__ == "__main__":
