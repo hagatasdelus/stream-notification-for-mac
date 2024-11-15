@@ -1,12 +1,14 @@
 import asyncio
 import contextlib
 import os
-import signal
 import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator, NoReturn
+
+from InquirerPy import inquirer
+from prompt_toolkit.validation import ValidationError, Validator
 
 from src.constants import AppConstant
 from src.logger import get_logger
@@ -20,6 +22,15 @@ def get_base_path() -> Path:
     if "__compiled__" in globals():
         return Path(os.path.dirname(os.path.realpath(sys.argv[0])))
     return Path(__file__).parent.resolve()
+
+class UsernameValidator(Validator):
+    """ユーザー名のバリデーション"""
+    def validate(self, document) -> None:
+        """ユーザー名のバリデーション"""
+        if not document.text: # 入力が空の場合
+            raise ValidationError(message="Username cannot be empty", cursor_position=len(document.text))
+        if not document.text.isalnum() or not document.text.isascii(): # 英数字でない場合
+            raise ValidationError(message="Username must be alphanumeric", cursor_position=len(document.text))
 
 class StreamNotificationApp:
     def __init__(self):
@@ -56,13 +67,15 @@ class StreamNotificationApp:
     async def _run_notification_script(self, message: str, title: str) -> None:
         """通知用のAppleScriptを非同期に実行"""
         try:
-            script_path = self.base_dir / "applescript" / "notification.applescript"
+            script_path = Path(self.base_dir, "applescript", "notification.applescript")
             if not script_path.exists():
                 self._handle_script_not_found(script_path)
 
-            cmd = ["/usr/bin/osascript", str(script_path), message, title]
             proc = await asyncio.create_subprocess_exec(
-                *cmd,
+                "/usr/bin/osascript",
+                script_path,
+                message,
+                title,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -72,7 +85,31 @@ class StreamNotificationApp:
             logger.exception("Notification failed")
             await self.display_message("Failed to send notification")
 
-    async def check_stream_status(self, username: str) -> None:
+    async def _run_dialog_script(self, message: str, title: str) -> None:
+        """ダイアログ表示用のAppleScriptを非同期に実行"""
+        try:
+            script_path = Path(self.base_dir, "applescript", "dialog.applescript")
+            if not script_path.exists():
+                self._handle_script_not_found(script_path)
+            icon_path = "AppIcon.png"
+            if not self.is_compiled():
+                icon_path = os.path.join("..", icon_path)
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript",
+                script_path,
+                message,
+                title,
+                icon_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+
+        except (subprocess.SubprocessError, FileNotFoundError):
+            logger.exception("Dialog failed")
+            await self.display_message("Failed to display dialog")
+
+    async def check_stream_status(self, username: str, display_format: str) -> None:
         """配信状態を定期的にチェック"""
         while self.is_running:
             try:
@@ -88,7 +125,11 @@ class StreamNotificationApp:
 
                 if display_name and stream_title:
                     message = self.format_display_message(username, display_name, stream_title)
-                    await self._run_notification_script(message, "Stream Started")
+                    script_args = [message, "Stream Started"]
+                    if display_format == "Notification":
+                        await self._run_notification_script(*script_args)
+                    else:
+                        await self._run_dialog_script(*script_args)
                     await self.display_message(message)
                     await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
                 else:
@@ -101,7 +142,7 @@ class StreamNotificationApp:
                 logger.exception("Unexpected error while checking stream status")
                 await asyncio.sleep(AppConstant.CHECK_INTERVAL)
 
-    async def check_streamer_existence(self, username: str) -> bool:
+    async def check_streamer_existence(self, username: str, display_format: str) -> bool:
         """ストリーマーの存在確認"""
         try:
             await self.display_message("Please wait a moment.")
@@ -109,7 +150,12 @@ class StreamNotificationApp:
             broadcaster_id = await self.twitch_api.get_broadcaster_id(username)
             if broadcaster_id:
                 message = f"{username} found. You will be notified when the streaming starts."
-                await self._run_notification_script(message, "Streamer Found")
+                script_args = [message, "Streamer Found"]
+                if display_format == "Notification":
+                    await self._run_notification_script(*script_args)
+                else:
+                    await self._run_dialog_script(*script_args)
+
                 await self.display_message(message)
                 return True
 
@@ -128,12 +174,12 @@ class StreamNotificationApp:
 
     async def launch_terminal(self) -> None:
         """新しいターミナルウィンドウを非同期に開く"""
-        base_path = get_base_path()
-        script_path = Path(__file__).parent  / "applescript" / "launch_terminal.applescript"
-        cmd = ["/usr/bin/osascript", str(script_path), str(base_path)]
+        script_path = Path(self.base_dir, "applescript", "launch_terminal.applescript")
         try:
             proc = await asyncio.create_subprocess_exec(
-                *cmd,
+                "/usr/bin/osascript",
+                script_path,
+                self.base_dir,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -145,14 +191,15 @@ class StreamNotificationApp:
             logger.exception("Failed to execute AppleScript")
 
     async def close_terminal(self) -> None:
+        """ターミナルウィンドウを非同期に閉じる"""
         try:
-            script_path = self.base_dir / "applescript" / "close_terminal.applescript"
+            script_path = Path(self.base_dir, "applescript", "close_terminal.applescript")
             if not script_path.exists():
                 self._handle_script_not_found(script_path)
             print("Closing terminal window...")
-            cmd = ["/usr/bin/osascript", str(script_path)]
             proc = await asyncio.create_subprocess_exec(
-                *cmd,
+                "/usr/bin/osascript",
+                script_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -198,53 +245,51 @@ class StreamNotificationApp:
         """メインの実行ループ"""
         async with self.initialize():
             try:
-                # シグナルハンドラの設定
-                for sig in (signal.SIGINT, signal.SIGTERM):
-                    signal.signal(sig, self.handle_signal)
+                username = await inquirer.text( # type: ignore
+                    message="Which streamer do you want to monitor?",
+                    validate=UsernameValidator(),
+                    instruction="[Enter username, not display name]",
+                    style=AppConstant.CUSTOM_STYLE
+                ).execute_async()
 
-                # ユーザー名の入力
-                while True:
-                        # SIGINTを無視する
-                        signal.signal(signal.SIGINT, signal.SIG_IGN)
-                        username = await asyncio.get_event_loop().run_in_executor(
-                            None, lambda: input("Enter Twitch username: ")
-                        )
-                        # SIGINTハンドラを元に戻す
-                        signal.signal(signal.SIGINT, self.handle_signal)
-                        username = username.strip()
-                        if username:
-                            break
+                display_format = await inquirer.fuzzy( # type: ignore
+                    message="Which notification method do you want to use?",
+                    choices=["Notification", "Dialog"],
+                    instruction="[Use arrows to move, type to filter]",
+                    style=AppConstant.CUSTOM_STYLE,
+                ).execute_async()
 
                 # ストリーマーの存在確認
-                if not await self.check_streamer_existence(username):
-                    return
+                if username and display_format:
+                    if not await self.check_streamer_existence(username, display_format):
+                        return
 
-                # 配信状態の監視を開始
-                status_task = asyncio.create_task(self.check_stream_status(username))
-                self._cleanup_tasks.append(status_task)
-                await status_task
+                    # 配信状態の監視を開始
+                    status_task = asyncio.create_task(self.check_stream_status(username, display_format))
+                    self._cleanup_tasks.append(status_task)
+                    await status_task
 
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, KeyboardInterrupt):
                 logger.info("Application shutdown requested")
             except Exception:
                 logger.exception("Unexpected error in main loop")
             finally:
                 await self.cleanup()
 
-def is_compiled() -> bool:
-    """アプリケーションがバンドル化されているか確認"""
-    return "__compiled__" in globals()
+    def is_compiled(self) -> bool:
+        """アプリケーションがバンドル化されているか確認"""
+        return "__compiled__" in globals()
 
 async def main() -> None:
     """非同期メイン関数"""
     app = StreamNotificationApp()
-    if "--no-terminal" not in sys.argv and is_compiled():
+    if "--no-terminal" not in sys.argv and app.is_compiled():
         await app.launch_terminal()
         return
     run_task = asyncio.create_task(app.run())
     await run_task
     await app.cleanup_compelete_event.wait()
-    if is_compiled():
+    if app.is_compiled():
         await app.close_terminal()
 
 if __name__ == "__main__":
