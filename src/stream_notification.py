@@ -27,9 +27,9 @@ class UsernameValidator(Validator):
     """ユーザー名のバリデーション"""
     def validate(self, document) -> None:
         """ユーザー名のバリデーション"""
-        if not document.text:
+        if not document.text: # 入力が空の場合
             raise ValidationError(message="Username cannot be empty", cursor_position=len(document.text))
-        if not document.text.isalnum() or not document.text.isascii():
+        if not document.text.isalnum() or not document.text.isascii(): # 英数字でない場合
             raise ValidationError(message="Username must be alphanumeric", cursor_position=len(document.text))
 
 class StreamNotificationApp:
@@ -191,6 +191,7 @@ class StreamNotificationApp:
             logger.exception("Failed to execute AppleScript")
 
     async def close_terminal(self) -> None:
+        """ターミナルウィンドウを非同期に閉じる"""
         try:
             script_path = Path(self.base_dir, "applescript", "close_terminal.applescript")
             if not script_path.exists():
@@ -263,7 +264,7 @@ class StreamNotificationApp:
                     if not await self.check_streamer_existence(username, display_format):
                         return
 
-                # 配信状態の監視を開始
+                    # 配信状態の監視を開始
                     status_task = asyncio.create_task(self.check_stream_status(username, display_format))
                     self._cleanup_tasks.append(status_task)
                     await status_task

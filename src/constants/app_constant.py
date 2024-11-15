@@ -29,4 +29,5 @@ class AppConstant(StrictConstant):
         "input": "#ffffff bold",   # 入力中の色
     }
 
+    # 対話型インターフェイスのスタイル
     CUSTOM_STYLE: InquirerPyStyle = get_style(style=STYLE, style_override=False)
