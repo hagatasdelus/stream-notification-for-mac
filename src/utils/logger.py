@@ -1,10 +1,10 @@
 import logging
 
-LOG_FORMAT = "%(asctime)s - %(message)s"
+from src.constants import AppConstant
 
 logging.basicConfig(
     level=logging.INFO,
-    format=LOG_FORMAT,
+    format=AppConstant.LOG_FORMAT,
     datefmt="%Y-%m-%d %H:%M:%S %Z",
 )
 
