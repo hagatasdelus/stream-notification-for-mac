@@ -31,3 +31,7 @@ class AppConstant(StrictConstant):
 
     # 対話型インターフェイスのスタイル
     CUSTOM_STYLE: InquirerPyStyle = get_style(style=STYLE, style_override=False)
+
+    # ロガーの設定
+    LOG_FORMAT = "%(asctime)s - %(message)s"
+    LOG_FILE = "notification.log"
