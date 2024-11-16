@@ -66,38 +66,48 @@ class StreamNotificationApp:
 
     async def _run_notification_script(self, message: str, title: str) -> None:
         """通知用のAppleScriptを非同期に実行"""
-        script_path = Path(self.base_dir, "applescript", "notification.applescript")
-        if not script_path.exists():
-            self._handle_script_not_found(script_path)
+        try:
+            script_path = Path(self.base_dir, "applescript", "notification.applescript")
+            if not script_path.exists():
+                self._handle_script_not_found(script_path)
 
-        proc = await asyncio.create_subprocess_exec(
-            "/usr/bin/osascript",
-            script_path,
-            message,
-            title,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        await proc.communicate()
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript",
+                script_path,
+                message,
+                title,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+
+        except (subprocess.SubprocessError, FileNotFoundError):
+            logger.exception("Notification failed")
+            await self.display_message("Failed to send notification")
 
     async def _run_dialog_script(self, message: str, title: str) -> None:
         """ダイアログ表示用のAppleScriptを非同期に実行"""
-        script_path = Path(self.base_dir, "applescript", "dialog.applescript")
-        if not script_path.exists():
-            self._handle_script_not_found(script_path)
-        icon_path = "AppIcon.png"
-        if not self.is_compiled():
-            icon_path = os.path.join("..", icon_path)
-        proc = await asyncio.create_subprocess_exec(
-            "/usr/bin/osascript",
-            script_path,
-            message,
-            title,
-            icon_path,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        await proc.communicate()
+        try:
+            script_path = Path(self.base_dir, "applescript", "dialog.applescript")
+            if not script_path.exists():
+                self._handle_script_not_found(script_path)
+            icon_path = "AppIcon.png"
+            if not self.is_compiled():
+                icon_path = os.path.join("..", icon_path)
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript",
+                script_path,
+                message,
+                title,
+                icon_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+
+        except (subprocess.SubprocessError, FileNotFoundError):
+            logger.exception("Dialog failed")
+            await self.display_message("Failed to display dialog")
 
     async def check_stream_status(self, username: str, display_format: str) -> None:
         """配信状態を定期的にチェック"""
@@ -164,32 +174,38 @@ class StreamNotificationApp:
     async def launch_terminal(self) -> None:
         """新しいターミナルウィンドウを非同期に開く"""
         script_path = Path(self.base_dir, "applescript", "launch_terminal.applescript")
-        proc = await asyncio.create_subprocess_exec(
-            "/usr/bin/osascript",
-            script_path,
-            self.base_dir,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        await proc.communicate()
+        if not script_path.exists():
+            self._handle_script_not_found(script_path)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript",
+                script_path,
+                self.base_dir,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+
+        except (subprocess.SubprocessError, FileNotFoundError):
+            logger.exception("Failed to execute AppleScript")
 
     async def close_terminal(self) -> None:
         """ターミナルウィンドウを非同期に閉じる"""
-        script_path = Path(self.base_dir, "applescript", "close_terminal.applescript")
-        if not script_path.exists():
-            self._handle_script_not_found(script_path)
-        print("Closing terminal window...")
-        proc = await asyncio.create_subprocess_exec(
-            "/usr/bin/osascript",
-            script_path,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            logger.error("Failed to close terminal window: %s", stderr.decode())
-            if stderr:
-                logger.error("Error output: %s", stderr.decode())
+        try:
+            script_path = Path(self.base_dir, "applescript", "close_terminal.applescript")
+            if not script_path.exists():
+                self._handle_script_not_found(script_path)
+            print("Closing terminal window...")
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript",
+                script_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+
+        except (subprocess.SubprocessError, FileNotFoundError):
+            logger.exception("Failed to close terminal window")
 
     async def cleanup(self) -> None:
         """アプリケーションのクリーンアップ処理"""
