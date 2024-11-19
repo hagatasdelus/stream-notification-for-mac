@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import os
+import re
 import subprocess
 import sys
 from contextlib import asynccontextmanager
@@ -29,7 +30,7 @@ class UsernameValidator(Validator):
         """ユーザー名のバリデーション"""
         if not document.text: # 入力が空の場合
             raise ValidationError(message="Username cannot be empty", cursor_position=len(document.text))
-        if not document.text.isalnum() or not document.text.isascii(): # 英数字でない場合
+        if not re.match(r"^[a-zA-Z0-9_]+$", document.text): # 英数字とアンダースコア以外が含まれている場合
             raise ValidationError(message="Username must be alphanumeric", cursor_position=len(document.text))
 
 class StreamNotificationApp:
