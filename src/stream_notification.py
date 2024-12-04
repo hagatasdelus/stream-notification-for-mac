@@ -33,8 +33,22 @@ class UsernameValidator(Validator):
         if not re.match(r"^[a-zA-Z0-9_]+$", document.text): # 英数字とアンダースコア以外が含まれている場合
             raise ValidationError(message="Username must be alphanumeric", cursor_position=len(document.text))
 
-class StreamNotificationApp:
+class StreamNotification(object):
+    """StreamNotification
+
+    StreamNotification is a stream notification application that monitors the streaming status of a Twitch streamer
+
+    Attributes:
+        base_dir (Path): The base directory of the application
+        twitch_api (TwitchAPI): The Twitch API client
+        is_running (bool): The running status of the application
+        _cleanup_tasks (list[asyncio.Task]): The cleanup tasks
+        cleanup_compelete_event (asyncio.Event): The cleanup complete event
+    """
+
     def __init__(self):
+        """Initialize instancee of StreamNotification
+        """
         self.base_dir = get_base_path()
         self.twitch_api = TwitchAPI()
         self.is_running = True
@@ -42,13 +56,24 @@ class StreamNotificationApp:
         self.cleanup_compelete_event = asyncio.Event()
 
     @asynccontextmanager
-    async def initialize(self) -> AsyncIterator["StreamNotificationApp"]:
-        """アプリケーションの初期化とクリーンアップを管理"""
+    async def initialize(self) -> AsyncIterator["StreamNotification"]:
+        """Application initialization context manager
+
+        Yields:
+            StreamNotification: The StreamNotification instance
+        """
         await self.twitch_api.initialize()
         yield self
 
     def _handle_script_not_found(self, script_path: Path) -> NoReturn:
-        """スクリプトが見つからない場合のエラー処理"""
+        """Handle script not found error
+
+        Args:
+            script_path (Path): The path to the script that was not found
+
+        Raises:
+            FileNotFoundError: The script was not found
+        """
         error_msg = f"Script not found: {script_path}"
         logger.error(error_msg)
         raise FileNotFoundError(error_msg)
@@ -59,7 +84,20 @@ class StreamNotificationApp:
         await asyncio.sleep(0)  # イベントループに制御を戻す
 
     def format_display_message(self, username: str, display_name: str, stream_title: str) -> str:
-        """表示メッセージのフォーマット"""
+        """formats the message to be displayed
+
+        Args:
+            username (str): The username of the streamer
+            display_name (str): The display name of the streamer
+            stream_title (str): The title of the stream
+
+        Returns:
+            str: The formatted message
+
+        Example:
+            >>> format_display_message("username", "display_name", "stream_title")
+            "display_name has started streaming: stream_title"
+        """
         base_format = f" has started streaming: {stream_title}"
         if username.lower() == display_name.lower():
             return display_name + base_format
@@ -277,7 +315,7 @@ class StreamNotificationApp:
 
 async def notification_run() -> None:
     """非同期メイン関数"""
-    app = StreamNotificationApp()
+    app = StreamNotification()
     if "--no-terminal" not in sys.argv and app.is_compiled():
         await app.launch_terminal()
         return
