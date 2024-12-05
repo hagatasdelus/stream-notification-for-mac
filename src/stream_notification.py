@@ -104,7 +104,16 @@ class StreamNotification(object):
         return f"{display_name}({username})" + base_format
 
     async def _run_notification_script(self, message: str, title: str) -> None:
-        """通知用のAppleScriptを非同期に実行"""
+        """run the notification AppleScript to display a notification
+
+        Args:
+            message (str): The message to be displayed
+            title (str): The title of the notification
+
+        Raises:
+            subprocess.SubprocessError: An error occurred while running the script
+            FileNotFoundError: The script was not found
+        """
         try:
             script_path = Path(self.base_dir, "applescript", "notification.applescript")
             if not script_path.exists():
@@ -125,7 +134,16 @@ class StreamNotification(object):
             await self.display_message("Failed to send notification")
 
     async def _run_dialog_script(self, message: str, title: str) -> None:
-        """ダイアログ表示用のAppleScriptを非同期に実行"""
+        """run the dialog AppleScript to display a dialog box
+
+        Args:
+            message (str): The message to be displayed
+            title (str): The title of the dialog box
+
+        Raises:
+            subprocess.SubprocessError: An error occurred while running the script
+            FileNotFoundError: The script was not found
+        """
         try:
             script_path = Path(self.base_dir, "applescript", "dialog.applescript")
             if not script_path.exists():
@@ -149,7 +167,15 @@ class StreamNotification(object):
             await self.display_message("Failed to display dialog")
 
     async def check_stream_status(self, username: str, display_format: str) -> None:
-        """配信状態を定期的にチェック"""
+        """check the streaming status of a streamer
+
+        Args:
+            username (str): The username of the streamer
+            display_format (str): The display format to use
+
+        Raises:
+            TwitchAPIError: An error occurred while checking the stream status
+        """
         while self.is_running:
             try:
                 display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
@@ -211,7 +237,12 @@ class StreamNotification(object):
             return False
 
     async def launch_terminal(self) -> None:
-        """新しいターミナルウィンドウを非同期に開く"""
+        """open a new terminal window
+
+        Raises:
+            subprocess.SubprocessError: An error occurred while running the script
+            FileNotFoundError: The script was not found
+        """
         script_path = Path(self.base_dir, "applescript", "launch_terminal.applescript")
         if not script_path.exists():
             self._handle_script_not_found(script_path)
