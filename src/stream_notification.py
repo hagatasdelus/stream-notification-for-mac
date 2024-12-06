@@ -19,15 +19,26 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__)
 
 def get_base_path() -> Path:
-    """実行ファイルのベースパスを取得"""
+    """Get the base path of the application
+    """
     if "__compiled__" in globals():
         return Path(os.path.dirname(os.path.realpath(sys.argv[0])))
     return Path(__file__).parent.resolve()
 
 class UsernameValidator(Validator):
-    """ユーザー名のバリデーション"""
+    """UsernameValidator
+
+    UsernameValidator is a prompt_toolkit Validator that validates the username input
+    """
     def validate(self, document) -> None:
-        """ユーザー名のバリデーション"""
+        """Validate the username input
+
+        Args:
+            document (Document): The input document
+
+        Raises:
+            ValidationError: The username is empty or contains non-alphanumeric characters
+        """
         if not document.text: # 入力が空の場合
             raise ValidationError(message="Username cannot be empty", cursor_position=len(document.text))
         if not re.match(r"^[a-zA-Z0-9_]+$", document.text): # 英数字とアンダースコア以外が含まれている場合
@@ -84,7 +95,7 @@ class StreamNotification(object):
         await asyncio.sleep(0)  # イベントループに制御を戻す
 
     def format_display_message(self, username: str, display_name: str, stream_title: str) -> str:
-        """formats the message to be displayed
+        """Formats the message to be displayed
 
         Args:
             username (str): The username of the streamer
@@ -104,7 +115,7 @@ class StreamNotification(object):
         return f"{display_name}({username})" + base_format
 
     async def _run_notification_script(self, message: str, title: str) -> None:
-        """run the notification AppleScript to display a notification
+        """Run the notification AppleScript to display a notification
 
         Args:
             message (str): The message to be displayed
@@ -134,7 +145,7 @@ class StreamNotification(object):
             await self.display_message("Failed to send notification")
 
     async def _run_dialog_script(self, message: str, title: str) -> None:
-        """run the dialog AppleScript to display a dialog box
+        """Run the dialog AppleScript to display a dialog box
 
         Args:
             message (str): The message to be displayed
@@ -162,12 +173,15 @@ class StreamNotification(object):
             )
             await proc.communicate()
 
-        except (subprocess.SubprocessError, FileNotFoundError):
+        except subprocess.SubprocessError:
             logger.exception("Dialog failed")
             await self.display_message("Failed to display dialog")
+        except FileNotFoundError:
+            logger.exception("Failed to find dialog script")
+            await self.display_message("Failed to find dialog script")
 
     async def check_stream_status(self, username: str, display_format: str) -> None:
-        """check the streaming status of a streamer
+        """Check the streaming status of a streamer
 
         Args:
             username (str): The username of the streamer
@@ -202,12 +216,20 @@ class StreamNotification(object):
             except TwitchAPIError:
                 logger.exception("Failed to check stream status")
                 await asyncio.sleep(AppConstant.CHECK_INTERVAL)
-            except Exception:
-                logger.exception("Unexpected error while checking stream status")
-                await asyncio.sleep(AppConstant.CHECK_INTERVAL)
 
     async def check_streamer_existence(self, username: str, display_format: str) -> bool:
-        """ストリーマーの存在確認"""
+        """Check if the streamer exists
+
+        Args:
+            username (str): The username of the streamer
+            display_format (str): The display format to use
+
+        Returns:
+            bool: True if the streamer exists, False otherwise
+
+        Raises:
+            TwitchAPIError: An error occurred while checking the streamer
+        """
         try:
             await self.display_message("Please wait a moment.")
 
@@ -231,13 +253,9 @@ class StreamNotification(object):
             logger.exception("Failed to check streamer existence")
             await self.display_message("Failed to check streamer existence.")
             return False
-        except Exception:
-            logger.exception("Unexpected error while checking streamer")
-            await self.display_message("An unexpected error occurred.")
-            return False
 
     async def launch_terminal(self) -> None:
-        """open a new terminal window
+        """Open a new terminal window
 
         Raises:
             subprocess.SubprocessError: An error occurred while running the script
@@ -256,11 +274,18 @@ class StreamNotification(object):
             )
             await proc.communicate()
 
-        except (subprocess.SubprocessError, FileNotFoundError):
-            logger.exception("Failed to execute AppleScript")
+        except subprocess.SubprocessError:
+            logger.exception("Failed to launch terminal window")
+        except FileNotFoundError:
+            logger.exception("Failed to find launch terminal script")
 
     async def close_terminal(self) -> None:
-        """ターミナルウィンドウを非同期に閉じる"""
+        """Close the terminal window
+
+        Raises:
+            subprocess.SubprocessError: An error occurred while running the script
+            FileNotFoundError: The script was not found
+        """
         try:
             script_path = Path(self.base_dir, "applescript", "close_terminal.applescript")
             if not script_path.exists():
@@ -274,11 +299,19 @@ class StreamNotification(object):
             )
             await proc.communicate()
 
-        except (subprocess.SubprocessError, FileNotFoundError):
+        except subprocess.SubprocessError:
             logger.exception("Failed to close terminal window")
+        except FileNotFoundError:
+            logger.exception("Failed to find close terminal script")
 
     async def cleanup(self) -> None:
-        """アプリケーションのクリーンアップ処理"""
+        """Clean up the application
+
+        This method cancels all running tasks, closes the Twitch API client, and sets the cleanup complete event.
+
+        Raises:
+            asyncio.CancelledError: The task was cancelled
+        """
         if not self.is_running:
             return
         logger.info("Starting application cleanup...")
@@ -299,14 +332,23 @@ class StreamNotification(object):
 
 
     def handle_signal(self, _sig: int, _frame: object | None) -> None:
-        """シグナルハンドラ"""
+        """Handle incoming signals and initiate application shutdown
+
+        Args:
+            _sig (int): The signal number
+            _frame (object | None): The frame object
+        """
         print("\nPlease wait a moment, terminating the application...")
         print("Do not change the currently selected tab in the terminal.")
         loop = asyncio.get_event_loop()
         loop.create_task(self.cleanup())
 
     async def run(self) -> None:
-        """メインの実行ループ"""
+        """Main execution loop of the application
+
+        Prompts the user for the streamer's username and the notification method,
+        then checks for the streamer's existence.
+        """
         async with self.initialize():
             try:
                 username = await inquirer.text( # type: ignore
@@ -332,20 +374,19 @@ class StreamNotification(object):
                     status_task = asyncio.create_task(self.check_stream_status(username, display_format))
                     self._cleanup_tasks.append(status_task)
                     await status_task
-
-            except (asyncio.CancelledError, KeyboardInterrupt):
+            except (KeyboardInterrupt, asyncio.CancelledError):
                 logger.info("Application shutdown requested")
-            except Exception:
-                logger.exception("Unexpected error in main loop")
             finally:
                 await self.cleanup()
 
     def is_compiled(self) -> bool:
-        """アプリケーションがバンドル化されているか確認"""
+        """Check if the application is compiled
+        """
         return "__compiled__" in globals()
 
 async def notification_run() -> None:
-    """非同期メイン関数"""
+    """Run the StreamNotification application
+    """
     app = StreamNotification()
     if "--no-terminal" not in sys.argv and app.is_compiled():
         await app.launch_terminal()
