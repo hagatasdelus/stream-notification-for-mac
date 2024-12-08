@@ -1,3 +1,17 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+stream_notification.py
+
+This module contains the implementation of the StreamNotification application,
+which monitors the streaming status of a Twitch streamer and provides notifications.
+"""
+
+__author__ = "Hagata"
+__version__ = "0.0.1"
+__date__ = "2024/12/08 (Created: 2024/10/20)"
+
 import asyncio
 import contextlib
 import os
