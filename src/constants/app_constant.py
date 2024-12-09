@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+"""
+This module defines constants used throughout the application.
+"""
+
 __author__ = "Hagata"
 __version__ = "0.0.1"
 __date__ = "2024/12/08 (Created: 2024/10/20)"
@@ -11,7 +15,21 @@ from .strict_constant import StrictConstant
 
 class AppConstant(StrictConstant):
     """
-    アプリケーション全体で使用する定数を定義するクラス
+    Constants used throughout the application.
+
+    Attributes:
+        CHECK_INTERVAL (int): Normal check interval (seconds).
+        STREAMING_INTERVAL (int): Check interval when streaming (seconds).
+        TIMEOUT_SECONDS (int): Timeout seconds for requests.
+        GRANT_TYPE (str): Grant type for the Twitch API.
+        ERROR_SESSION_NOT_INITIALIZED (str): Error message for uninitialized session.
+        ERROR_ACCESS_TOKEN_NOT_AVAILABLE (str): Error message for unavailable access token.
+        ERROR_ACCESS_TOKEN_FAILED (str): Error message for failed access token retrieval.
+        ERROR_API_REQUEST_FAILED (str): Error message for failed API requests.
+        STYLE (dict): Style settings for the interactive interface.
+        CUSTOM_STYLE (InquirerPyStyle): Custom style for the interactive interface.
+        LOG_FORMAT (str): Log format.
+        LOG_FILE (str): Log file name.
     """
     # Twitch API関連
     CHECK_INTERVAL: int = 60  # 通常の確認間隔（秒）

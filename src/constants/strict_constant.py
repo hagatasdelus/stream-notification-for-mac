@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+"""
+This module defines a `StrictConstant` class and its metaclass `StrictConstantMeta`
+which enforce strict immutability on class attributes.
+"""
+
 __author__ = "Hagata"
 __version__ = "0.0.1"
 __date__ = "2024/12/08 (Created: 2024/10/20)"
@@ -11,12 +16,16 @@ class StrictConstantMeta(ConstantMeta):
     @staticmethod
     def is_constant_attr(name: str) -> bool:
         """
-        特殊属性以外の全ての属性を定数として扱う
+        Treat all attributes as constants except special attributes.
 
         Args:
-            name (str): 属性名
+            name (str): Attribute name
+
         Returns:
-            bool: 特殊属性以外全てTrue
+            bool: True if the attribute is not special, False
+
+        Note:
+            Special attributes are those that start and end with double underscores.
         """
         is_special = name.startswith("__") and name.endswith("__")
         return not is_special
@@ -24,16 +33,20 @@ class StrictConstantMeta(ConstantMeta):
     @staticmethod
     def is_settable_attr(name: str) -> bool:  # noqa: ARG004
         """
-        変更可能な属性を一切許可しない
+        Do not allow any mutable attributes.
 
         Args:
-            name (str): 属性名
+            name (str): Attribute name
+
         Returns:
-            bool: 常にFalse
+            bool: False
+
+        Note:
+            This method always returns False to enforce strict immutability.
         """
         return False
 
 class StrictConstant(metaclass=StrictConstantMeta):
     """
-    完全に不変な定数を提供するクラス
+    A class that enforces strict immutability on its attributes.
     """

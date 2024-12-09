@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+"""
+This module provides a logger for the application.
+"""
+
 __author__ = "Hagata"
 __version__ = "0.0.1"
 __date__ = "2024/12/08 (Created: 2024/10/20)"
@@ -15,4 +19,6 @@ logging.basicConfig(
 )
 
 def get_logger(name: str) -> logging.Logger:
+    """Get a logger instance.
+    """
     return logging.getLogger(name)
