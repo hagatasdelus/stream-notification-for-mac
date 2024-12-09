@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+
+__author__ = "Hagata"
+__version__ = "0.0.1"
+__date__ = "2024/12/08 (Created: 2024/10/20)"
+
 class ConstantError(Exception):
     """Constantクラスの例外"""
     INHERITANCE_ERROR = "Can't inheritance of [{0}] and [{1}] together"

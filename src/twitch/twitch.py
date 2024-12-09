@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+
+"""
+This module provides an asynchronous client for interacting with the Twitch API.
+"""
+
+__author__ = "Hagata"
+__version__ = "0.0.1"
+__date__ = "2024/12/08 (Created: 2024/10/20)"
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -12,11 +22,24 @@ from src.constants import AppConstant
 logger = logging.getLogger(__name__)
 
 class TwitchAPIError(Exception):
-    """TwitchAPI関連の例外"""
+    """Exception raised for errors in the Twitch API client.
+    """
 
 class TwitchAPI:
+    """Asynchronous client for interacting with the Twitch API.
+
+    Attributes:
+        base_url (str): The base URL for the Twitch API.
+        timeout (ClientTimeout): The timeout settings for the client.
+        client_id (str): The client ID for the Twitch API.
+        client_secret (str): The client secret for the Twitch API.
+        session (ClientSession): The client session for making requests.
+        access_token (str): The access token for the Twitch API.
+        _token_lock (asyncio.Lock): A lock for ensuring access token is retrieved or updated safely.
+    """
+
     base_url = "https://api.twitch.tv/helix/"
-    timeout = ClientTimeout(total=AppConstant.TIMEOUT_SECONDS)  # 10秒のタイムアウト
+    timeout = ClientTimeout(total=AppConstant.TIMEOUT_SECONDS)
 
     def __init__(self):
         self.client_id = CLIENT_ID
