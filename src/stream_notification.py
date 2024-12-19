@@ -22,6 +22,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator, NoReturn
 
+import urllib3
 from InquirerPy import inquirer
 from prompt_toolkit.validation import ValidationError, Validator
 
@@ -143,20 +144,17 @@ class StreamNotification(object):
             script_path = Path(self.base_dir, "applescript", "notification.applescript")
             if not script_path.exists():
                 self._handle_script_not_found(script_path)
-
-            proc = await asyncio.create_subprocess_exec(
-                "/usr/bin/osascript",
-                script_path,
-                message,
-                title,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            await proc.communicate()
-
-        except (subprocess.SubprocessError, FileNotFoundError):
-            logger.exception("Notification failed")
-            await self.display_message("Failed to send notification")
+        except FileNotFoundError:
+            logger.exception("Failed to find notification script")
+        proc = await asyncio.create_subprocess_exec(
+            "/usr/bin/osascript",
+            script_path,
+            message,
+            title,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        await proc.communicate()
 
     async def _run_dialog_script(self, message: str, title: str) -> None:
         """Run the dialog AppleScript to display a dialog box
