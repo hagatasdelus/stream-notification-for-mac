@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import sys
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator, NoReturn
@@ -145,16 +146,23 @@ class StreamNotification(object):
             if not script_path.exists():
                 self._handle_script_not_found(script_path)
         except FileNotFoundError:
-            logger.exception("Failed to find notification script")
-        proc = await asyncio.create_subprocess_exec(
-            "/usr/bin/osascript",
-            script_path,
-            message,
-            title,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        await proc.communicate()
+            logger.exception(traceback.format_exc())
+            return
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript",
+                    script_path,
+                message,
+                title,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+        except subprocess.SubprocessError:
+            logger.exception(traceback.format_exc())
+            return
+
 
     async def _run_dialog_script(self, message: str, title: str) -> None:
         """Run the dialog AppleScript to display a dialog box
@@ -171,9 +179,15 @@ class StreamNotification(object):
             script_path = Path(self.base_dir, "applescript", "dialog.applescript")
             if not script_path.exists():
                 self._handle_script_not_found(script_path)
-            icon_path = "AppIcon.png"
-            if not self.is_compiled():
-                icon_path = os.path.join("..", icon_path)
+        except FileNotFoundError:
+            logger.exception(traceback.format_exc())
+            return
+
+        icon_path = "AppIcon.png"
+        if not self.is_compiled():
+            icon_path = os.path.join("..", icon_path)
+
+        try:
             proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/osascript",
                 script_path,
@@ -184,13 +198,9 @@ class StreamNotification(object):
                 stderr=asyncio.subprocess.PIPE
             )
             await proc.communicate()
-
         except subprocess.SubprocessError:
-            logger.exception("Dialog failed")
-            await self.display_message("Failed to display dialog")
-        except FileNotFoundError:
-            logger.exception("Failed to find dialog script")
-            await self.display_message("Failed to find dialog script")
+            logger.exception(traceback.format_exc())
+            return
 
     async def check_stream_status(self, username: str, display_format: str) -> None:
         """Check the streaming status of a streamer
