@@ -20,3 +20,13 @@ class StreamStatus(enum.Enum):
     """
     STREAMING = "streaming"
     NOTSTREAMING = "not streaming"
+
+class NotificationFormat(enum.Enum):
+    """Enum class for notification format.
+
+    Attributes:
+        notification: Notification format.
+        dialog: Dialog format.
+    """
+    notification = "Notification"
+    dialog = "Dialog"
