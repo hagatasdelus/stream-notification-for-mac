@@ -121,8 +121,7 @@ class StreamNotification(object):
         """Run the notification AppleScript to display a notification
 
         Args:
-            message (str): The message to be displayed
-            title (str): The title of the notification
+            *arguments (list[str]): The arguments to pass to the script
 
         Raises:
             subprocess.SubprocessError: An error occurred while running the script
@@ -154,8 +153,7 @@ class StreamNotification(object):
         """Run the dialog AppleScript to display a dialog box
 
         Args:
-            message (str): The message to be displayed
-            title (str): The title of the dialog box
+            *arguments (list[str]): The arguments to pass to the script
 
         Raises:
             subprocess.SubprocessError: An error occurred while running the script
@@ -187,6 +185,41 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
+    async def _run_starting_dialog_script(self, *arguments) -> None:
+        """Run the dialog AppleScript to display a dialog box
+
+        Args:
+            *arguments (list[str]): The arguments to pass to the script
+
+        Raises:
+            subprocess.SubprocessError: An error occurred while running the script
+            FileNotFoundError: The script was not found
+        """
+        try:
+            script_path = Path(self.base_dir, "applescript", "starting_dialog.applescript")
+        except FileNotFoundError:
+            logger.exception(traceback.format_exc())
+            return
+
+        icon_path = "AppIcon.png"
+        if not self.is_compiled():
+            icon_path = os.path.join("..", icon_path)
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript",
+                script_path,
+                arguments[0],   # message
+                arguments[1],   # title
+                icon_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+        except subprocess.SubprocessError:
+            logger.exception(traceback.format_exc())
+            return
+
     async def check_stream_status(self, username: str, display_format: NotificationFormat) -> None:
         """Check the streaming status of a streamer
 
@@ -208,9 +241,9 @@ class StreamNotification(object):
                 )
 
             if display_name and stream_title:
-                url_string = f"https://twitch.tv/{username}"
+                url_string = f"https://www.twitch.tv/{username}"
                 a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
-
+                print("a_url: "+a_url.url)
                 message = self.format_display_message(username, display_name, stream_title)
                 script_args = [message, "Stream Started", a_url]
                 if display_format == NotificationFormat.notification:
@@ -248,7 +281,7 @@ class StreamNotification(object):
         if display_format == "Notification":
             await self._run_notification_script(*script_args)
         else:
-            await self._run_dialog_script(*script_args)
+            await self._run_starting_dialog_script(*script_args)
 
         await self.display_message(message)
         return True
@@ -361,7 +394,7 @@ class StreamNotification(object):
 
         choiced_display_format = await inquirer.fuzzy( # type: ignore
             message="Which notification method do you want to use?",
-            choices=list(NotificationFormat.__members__.values()),
+            choices=[fmt.value for fmt in NotificationFormat.__members__.values()],
             instruction="[Use arrows to move, type to filter]",
             style=AppConstant.CUSTOM_STYLE,
         ).execute_async()
