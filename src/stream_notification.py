@@ -149,7 +149,7 @@ class StreamNotification(object):
             return
 
 
-    async def _run_dialog_script(self, *arguments) -> None:
+    async def _run_dialog_script(self, message: str, a_url: urllib3.util.Url) -> None:
         """Run the dialog AppleScript to display a dialog box
 
         Args:
@@ -169,14 +169,13 @@ class StreamNotification(object):
         if not self.is_compiled():
             icon_path = os.path.join("..", icon_path)
 
+        script_arguments = [message, a_url.url, icon_path]
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/osascript",
                 script_path,
-                arguments[0],   # message
-                arguments[1],   # title
-                icon_path,
-                arguments[2].url, # url
+                *script_arguments,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -205,13 +204,16 @@ class StreamNotification(object):
         if not self.is_compiled():
             icon_path = os.path.join("..", icon_path)
 
+        script_arguments = [*arguments, icon_path]
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/osascript",
                 script_path,
-                arguments[0],   # message
-                arguments[1],   # title
-                icon_path,
+                # arguments[0],   # message
+                # arguments[1],   # title
+                # icon_path,
+                *script_arguments,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -249,7 +251,7 @@ class StreamNotification(object):
                 if display_format == NotificationFormat.notification:
                     await self._run_notification_script(*script_args)
                 else:
-                    await self._run_dialog_script(*script_args)
+                    await self._run_dialog_script(message, a_url)
                 await self.display_message(message)
                 await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
             else:
