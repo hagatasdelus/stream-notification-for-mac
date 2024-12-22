@@ -28,5 +28,5 @@ class NotificationFormat(enum.Enum):
         notification: Notification format.
         dialog: Dialog format.
     """
-    notification = "Notification"
-    dialog = "Dialog"
+    NOTIFICATION = "Notification"
+    DIALOG = "Dialog"

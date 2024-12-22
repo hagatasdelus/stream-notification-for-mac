@@ -80,7 +80,7 @@ class StreamNotification(object):
         self.twitch_api = TwitchAPI()
         self.is_running = True
         self._cleanup_tasks: list[asyncio.Task] = []
-        self.cleanup_compelete_event = asyncio.Event()
+        self.cleanup_complete_event = asyncio.Event()
 
     @asynccontextmanager
     async def initialize(self) -> AsyncIterator["StreamNotification"]:
@@ -248,7 +248,7 @@ class StreamNotification(object):
                 a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
                 message = self.format_display_message(username, display_name, stream_title)
                 notification_title = "Stream Started"
-                if display_format == NotificationFormat.notification:
+                if display_format == NotificationFormat.NOTIFICATION:
                     await self._run_notification_script(message, notification_title)
                 else:
                     await self._run_dialog_script(message, notification_title, a_url)
@@ -281,7 +281,7 @@ class StreamNotification(object):
         message = f"{username} found. You will be notified when the streaming starts."
 
         found_title = "Streamer Found"
-        if display_format == NotificationFormat.notification:
+        if display_format == NotificationFormat.NOTIFICATION:
             await self._run_notification_script(message, found_title)
         else:
             await self._run_starting_dialog_script(message, found_title)
@@ -366,7 +366,7 @@ class StreamNotification(object):
         await self.twitch_api.close()
 
         logger.info("Application cleanup completed")
-        self.cleanup_compelete_event.set()
+        self.cleanup_complete_event.set()
 
 
     def handle_signal(self, _sig: int, _frame: object | None) -> None:
@@ -442,7 +442,7 @@ async def notification_run() -> None:
         return
     run_task = asyncio.create_task(app.run())
     await run_task
-    await app.cleanup_compelete_event.wait()
+    await app.cleanup_complete_event.wait()
     if app.is_compiled():
         await app.close_terminal()
 
