@@ -10,7 +10,7 @@ which monitors the streaming status of a Twitch streamer and provides notificati
 
 __author__ = "Hagata"
 __version__ = "0.0.1"
-__date__ = "2024/12/08 (Created: 2024/10/20)"
+__date__ = "2024/12/23 (Created: 2024/10/20)"
 
 import asyncio
 import contextlib
@@ -18,16 +18,18 @@ import os
 import re
 import subprocess
 import sys
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, NoReturn
+from typing import AsyncIterator
 
+import urllib3.util
 from InquirerPy import inquirer
 from prompt_toolkit.validation import ValidationError, Validator
 
 from src.constants import AppConstant
-from src.stream_status import StreamStatus
-from src.twitch import TwitchAPI, TwitchAPIError
+from src.enums import NotificationFormat, StreamStatus
+from src.twitch import TwitchAPI
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -78,7 +80,7 @@ class StreamNotification(object):
         self.twitch_api = TwitchAPI()
         self.is_running = True
         self._cleanup_tasks: list[asyncio.Task] = []
-        self.cleanup_compelete_event = asyncio.Event()
+        self.cleanup_complete_event = asyncio.Event()
 
     @asynccontextmanager
     async def initialize(self) -> AsyncIterator["StreamNotification"]:
@@ -89,19 +91,6 @@ class StreamNotification(object):
         """
         await self.twitch_api.initialize()
         yield self
-
-    def _handle_script_not_found(self, script_path: Path) -> NoReturn:
-        """Handle script not found error
-
-        Args:
-            script_path (Path): The path to the script that was not found
-
-        Raises:
-            FileNotFoundError: The script was not found
-        """
-        error_msg = f"Script not found: {script_path}"
-        logger.error(error_msg)
-        raise FileNotFoundError(error_msg)
 
     async def display_message(self, message: str) -> None:
         """メッセージを非同期に表示"""
@@ -132,7 +121,7 @@ class StreamNotification(object):
         """Run the notification AppleScript to display a notification
 
         Args:
-            message (str): The message to be displayed
+            message (str): The message to display
             title (str): The title of the notification
 
         Raises:
@@ -141,29 +130,33 @@ class StreamNotification(object):
         """
         try:
             script_path = Path(self.base_dir, "applescript", "notification.applescript")
-            if not script_path.exists():
-                self._handle_script_not_found(script_path)
+        except FileNotFoundError:
+            logger.exception(traceback.format_exc())
+            return
 
+        script_arguments = [message, title]
+
+        try:
             proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/osascript",
                 script_path,
-                message,
-                title,
+                *script_arguments,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
             await proc.communicate()
+        except subprocess.SubprocessError:
+            logger.exception(traceback.format_exc())
+            return
 
-        except (subprocess.SubprocessError, FileNotFoundError):
-            logger.exception("Notification failed")
-            await self.display_message("Failed to send notification")
 
-    async def _run_dialog_script(self, message: str, title: str) -> None:
-        """Run the dialog AppleScript to display a dialog box
+    async def _run_dialog_script(self, message: str, title: str, a_url: urllib3.util.Url) -> None:
+        """Run to display a dialogue Applescript informing that the monitored object has started a stream
 
         Args:
-            message (str): The message to be displayed
-            title (str): The title of the dialog box
+            message (str): The message to display
+            title (str): The title of the dialog
+            a_url (urllib3.util.Url): The URL to open
 
         Raises:
             subprocess.SubprocessError: An error occurred while running the script
@@ -171,30 +164,66 @@ class StreamNotification(object):
         """
         try:
             script_path = Path(self.base_dir, "applescript", "dialog.applescript")
-            if not script_path.exists():
-                self._handle_script_not_found(script_path)
-            icon_path = "AppIcon.png"
-            if not self.is_compiled():
-                icon_path = os.path.join("..", icon_path)
+        except FileNotFoundError:
+            logger.exception(traceback.format_exc())
+            return
+
+        current_direcory = os.getcwd()
+        icon_name = "AppIcon.png"
+        icon_path = os.path.join(current_direcory, icon_name)
+
+        script_arguments = [message, title, a_url.url, icon_path]
+
+        try:
             proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/osascript",
                 script_path,
-                message,
-                title,
-                icon_path,
+                *script_arguments,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
             await proc.communicate()
-
         except subprocess.SubprocessError:
-            logger.exception("Dialog failed")
-            await self.display_message("Failed to display dialog")
-        except FileNotFoundError:
-            logger.exception("Failed to find dialog script")
-            await self.display_message("Failed to find dialog script")
+            logger.exception(traceback.format_exc())
+            return
 
-    async def check_stream_status(self, username: str, display_format: str) -> None:
+    async def _run_starting_dialog_script(self, message: str, title: str) -> None:
+        """Run to display dialog Applescript to start monitoring
+
+        Args:
+            message (str): The message to display
+            title (str): The title of the dialog
+
+        Raises:
+            subprocess.SubprocessError: An error occurred while running the script
+            FileNotFoundError: The script was not found
+        """
+        try:
+            script_path = Path(self.base_dir, "applescript", "starting_dialog.applescript")
+        except FileNotFoundError:
+            logger.exception(traceback.format_exc())
+            return
+
+        current_direcory = os.getcwd()
+        icon_name = "AppIcon.png"
+        icon_path = os.path.join(current_direcory, icon_name)
+
+        script_arguments = [message, title, icon_path]
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript",
+                script_path,
+                *script_arguments,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+        except subprocess.SubprocessError:
+            logger.exception(traceback.format_exc())
+            return
+
+    async def check_stream_status(self, username: str, display_format: NotificationFormat) -> None:
         """Check the streaming status of a streamer
 
         Args:
@@ -205,33 +234,30 @@ class StreamNotification(object):
             TwitchAPIError: An error occurred while checking the stream status
         """
         while self.is_running:
-            try:
-                display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
+            display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
 
-                if stream_title is not None:
-                    logger.info(
-                        "Checking stream status: %s - %s",
-                        username,
-                        StreamStatus.STREAMING.value.title()
-                    )
+            if stream_title is not None:
+                logger.info(
+                    "Checking stream status: %s - %s",
+                    username,
+                    StreamStatus.STREAMING.value.title()
+                )
 
-                if display_name and stream_title:
-                    message = self.format_display_message(username, display_name, stream_title)
-                    script_args = [message, "Stream Started"]
-                    if display_format == "Notification":
-                        await self._run_notification_script(*script_args)
-                    else:
-                        await self._run_dialog_script(*script_args)
-                    await self.display_message(message)
-                    await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
+            if display_name and stream_title:
+                url_string = f"https://www.twitch.tv/{username}"
+                a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
+                message = self.format_display_message(username, display_name, stream_title)
+                notification_title = "Stream Started"
+                if display_format == NotificationFormat.NOTIFICATION:
+                    await self._run_notification_script(message, notification_title)
                 else:
-                    await asyncio.sleep(AppConstant.CHECK_INTERVAL)
-
-            except TwitchAPIError:
-                logger.exception("Failed to check stream status")
+                    await self._run_dialog_script(message, notification_title, a_url)
+                await self.display_message(message)
+                await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
+            else:
                 await asyncio.sleep(AppConstant.CHECK_INTERVAL)
 
-    async def check_streamer_existence(self, username: str, display_format: str) -> bool:
+    async def check_streamer_existence(self, username: str, display_format: NotificationFormat) -> bool:
         """Check if the streamer exists
 
         Args:
@@ -244,29 +270,24 @@ class StreamNotification(object):
         Raises:
             TwitchAPIError: An error occurred while checking the streamer
         """
-        try:
-            await self.display_message("Please wait a moment.")
+        await self.display_message("Please wait a moment.")
 
-            broadcaster_id = await self.twitch_api.get_broadcaster_id(username)
-            if broadcaster_id:
-                message = f"{username} found. You will be notified when the streaming starts."
-                script_args = [message, "Streamer Found"]
-                if display_format == "Notification":
-                    await self._run_notification_script(*script_args)
-                else:
-                    await self._run_dialog_script(*script_args)
-
-                await self.display_message(message)
-                return True
-
+        broadcaster_id = await self.twitch_api.get_broadcaster_id(username)
+        if not broadcaster_id:
             message = f"{username} not found."
             await self.display_message(message)
             return False
 
-        except TwitchAPIError:
-            logger.exception("Failed to check streamer existence")
-            await self.display_message("Failed to check streamer existence.")
-            return False
+        message = f"{username} found. You will be notified when the streaming starts."
+
+        found_title = "Streamer Found"
+        if display_format == NotificationFormat.NOTIFICATION:
+            await self._run_notification_script(message, found_title)
+        else:
+            await self._run_starting_dialog_script(message, found_title)
+
+        await self.display_message(message)
+        return True
 
     async def launch_terminal(self) -> None:
         """Open a new terminal window
@@ -275,9 +296,12 @@ class StreamNotification(object):
             subprocess.SubprocessError: An error occurred while running the script
             FileNotFoundError: The script was not found
         """
-        script_path = Path(self.base_dir, "applescript", "launch_terminal.applescript")
-        if not script_path.exists():
-            self._handle_script_not_found(script_path)
+        try:
+            script_path = Path(self.base_dir, "applescript", "launch_terminal.applescript")
+        except FileNotFoundError:
+            logger.exception(traceback.format_exc())
+            return
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/osascript",
@@ -302,9 +326,11 @@ class StreamNotification(object):
         """
         try:
             script_path = Path(self.base_dir, "applescript", "close_terminal.applescript")
-            if not script_path.exists():
-                self._handle_script_not_found(script_path)
-            print("Closing terminal window...")
+        except FileNotFoundError:
+            logger.exception(traceback.format_exc())
+            return
+
+        try:
             proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/osascript",
                 script_path,
@@ -312,11 +338,9 @@ class StreamNotification(object):
                 stderr=asyncio.subprocess.PIPE
             )
             await proc.communicate()
-
         except subprocess.SubprocessError:
-            logger.exception("Failed to close terminal window")
-        except FileNotFoundError:
-            logger.exception("Failed to find close terminal script")
+            logger.exception(traceback.format_exc())
+            return
 
     async def cleanup(self) -> None:
         """Clean up the application
@@ -342,7 +366,7 @@ class StreamNotification(object):
         await self.twitch_api.close()
 
         logger.info("Application cleanup completed")
-        self.cleanup_compelete_event.set()
+        self.cleanup_complete_event.set()
 
 
     def handle_signal(self, _sig: int, _frame: object | None) -> None:
@@ -357,6 +381,29 @@ class StreamNotification(object):
         loop = asyncio.get_event_loop()
         loop.create_task(self.cleanup())
 
+    async def input_monitoring_settings(self) -> tuple[str, "NotificationFormat"]:
+        """Prompt the user for monitoring settings
+
+        Returns:
+            tuple[str, str]: The username and display format
+        """
+
+        username = await inquirer.text( # type: ignore
+            message="Which streamer do you want to monitor?",
+            validate=UsernameValidator(),
+            instruction="[Enter username, not display name]",
+            style=AppConstant.CUSTOM_STYLE
+        ).execute_async()
+
+        choiced_display_format = await inquirer.fuzzy( # type: ignore
+            message="Which notification method do you want to use?",
+            choices=[fmt.value for fmt in NotificationFormat.__members__.values()],
+            instruction="[Use arrows to move, type to filter]",
+            style=AppConstant.CUSTOM_STYLE,
+        ).execute_async()
+        display_format = NotificationFormat(choiced_display_format)
+        return username, display_format # type: ignore
+
     async def run(self) -> None:
         """Main execution loop of the application
 
@@ -365,20 +412,8 @@ class StreamNotification(object):
         """
         async with self.initialize():
             try:
-                username = await inquirer.text( # type: ignore
-                    message="Which streamer do you want to monitor?",
-                    validate=UsernameValidator(),
-                    instruction="[Enter username, not display name]",
-                    style=AppConstant.CUSTOM_STYLE
-                ).execute_async()
-
-                display_format = await inquirer.fuzzy( # type: ignore
-                    message="Which notification method do you want to use?",
-                    choices=["Notification", "Dialog"],
-                    instruction="[Use arrows to move, type to filter]",
-                    style=AppConstant.CUSTOM_STYLE,
-                ).execute_async()
-
+                # 監視設定の入力
+                username, display_format = await self.input_monitoring_settings()
                 # ストリーマーの存在確認
                 if username and display_format:
                     if not await self.check_streamer_existence(username, display_format):
@@ -407,9 +442,9 @@ async def notification_run() -> None:
         return
     run_task = asyncio.create_task(app.run())
     await run_task
-    await app.cleanup_compelete_event.wait()
+    await app.cleanup_complete_event.wait()
     if app.is_compiled():
         await app.close_terminal()
 
 if __name__ == "__main__":
-    asyncio.run(notification_run())
+    sys.exit(asyncio.run(notification_run()))
