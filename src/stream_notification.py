@@ -117,11 +117,12 @@ class StreamNotification(object):
             return display_name + base_format
         return f"{display_name}({username})" + base_format
 
-    async def _run_notification_script(self, *arguments) -> None:
+    async def _run_notification_script(self, message: str, title: str) -> None:
         """Run the notification AppleScript to display a notification
 
         Args:
-            *arguments (list[str]): The arguments to pass to the script
+            message (str): The message to display
+            title (str): The title of the notification
 
         Raises:
             subprocess.SubprocessError: An error occurred while running the script
@@ -133,43 +134,7 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "/usr/bin/osascript",
-                script_path,
-                arguments[0],   # message
-                arguments[1],   # title
-                arguments[2].url, # url
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            await proc.communicate()
-        except subprocess.SubprocessError:
-            logger.exception(traceback.format_exc())
-            return
-
-
-    async def _run_dialog_script(self, message: str, a_url: urllib3.util.Url) -> None:
-        """Run the dialog AppleScript to display a dialog box
-
-        Args:
-            *arguments (list[str]): The arguments to pass to the script
-
-        Raises:
-            subprocess.SubprocessError: An error occurred while running the script
-            FileNotFoundError: The script was not found
-        """
-        try:
-            script_path = Path(self.base_dir, "applescript", "dialog.applescript")
-        except FileNotFoundError:
-            logger.exception(traceback.format_exc())
-            return
-
-        icon_path = "AppIcon.png"
-        if not self.is_compiled():
-            icon_path = os.path.join("..", icon_path)
-
-        script_arguments = [message, a_url.url, icon_path]
+        script_arguments = [message, title]
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -184,11 +149,50 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-    async def _run_starting_dialog_script(self, *arguments) -> None:
-        """Run the dialog AppleScript to display a dialog box
+
+    async def _run_dialog_script(self, message: str, title: str, a_url: urllib3.util.Url) -> None:
+        """Run to display a dialogue Applescript informing that the monitored object has started a stream
 
         Args:
-            *arguments (list[str]): The arguments to pass to the script
+            message (str): The message to display
+            title (str): The title of the dialog
+            a_url (urllib3.util.Url): The URL to open
+
+        Raises:
+            subprocess.SubprocessError: An error occurred while running the script
+            FileNotFoundError: The script was not found
+        """
+        try:
+            script_path = Path(self.base_dir, "applescript", "dialog.applescript")
+        except FileNotFoundError:
+            logger.exception(traceback.format_exc())
+            return
+
+        current_direcory = os.getcwd()
+        icon_name = "AppIcon.png"
+        icon_path = os.path.join(current_direcory, icon_name)
+
+        script_arguments = [message, title, a_url.url, icon_path]
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript",
+                script_path,
+                *script_arguments,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+        except subprocess.SubprocessError:
+            logger.exception(traceback.format_exc())
+            return
+
+    async def _run_starting_dialog_script(self, message: str, title: str) -> None:
+        """Run to display dialog Applescript to start monitoring
+
+        Args:
+            message (str): The message to display
+            title (str): The title of the dialog
 
         Raises:
             subprocess.SubprocessError: An error occurred while running the script
@@ -200,19 +204,16 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        icon_path = "AppIcon.png"
-        if not self.is_compiled():
-            icon_path = os.path.join("..", icon_path)
+        current_direcory = os.getcwd()
+        icon_name = "AppIcon.png"
+        icon_path = os.path.join(current_direcory, icon_name)
 
-        script_arguments = [*arguments, icon_path]
+        script_arguments = [message, title, icon_path]
 
         try:
             proc = await asyncio.create_subprocess_exec(
                 "/usr/bin/osascript",
                 script_path,
-                # arguments[0],   # message
-                # arguments[1],   # title
-                # icon_path,
                 *script_arguments,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
@@ -245,13 +246,12 @@ class StreamNotification(object):
             if display_name and stream_title:
                 url_string = f"https://www.twitch.tv/{username}"
                 a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
-                print("a_url: "+a_url.url)
                 message = self.format_display_message(username, display_name, stream_title)
-                script_args = [message, "Stream Started", a_url]
+                notification_title = "Stream Started"
                 if display_format == NotificationFormat.notification:
-                    await self._run_notification_script(*script_args)
+                    await self._run_notification_script(message, notification_title)
                 else:
-                    await self._run_dialog_script(message, a_url)
+                    await self._run_dialog_script(message, notification_title, a_url)
                 await self.display_message(message)
                 await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
             else:
@@ -279,11 +279,12 @@ class StreamNotification(object):
             return False
 
         message = f"{username} found. You will be notified when the streaming starts."
-        script_args = [message, "Streamer Found"]
-        if display_format == "Notification":
-            await self._run_notification_script(*script_args)
+
+        found_title = "Streamer Found"
+        if display_format == NotificationFormat.notification:
+            await self._run_notification_script(message, found_title)
         else:
-            await self._run_starting_dialog_script(*script_args)
+            await self._run_starting_dialog_script(message, found_title)
 
         await self.display_message(message)
         return True
