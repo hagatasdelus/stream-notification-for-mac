@@ -17,4 +17,4 @@ import sys
 import src.stream_notification as sn
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(sn.notification_run()))
+    sys.exit(asyncio.run(sn.run_stream_notification()))

@@ -432,7 +432,7 @@ class StreamNotification(object):
         """
         return "__compiled__" in globals()
 
-async def notification_run() -> None:
+async def run_stream_notification() -> None:
     """Run the StreamNotification application
     """
     app = StreamNotification()
