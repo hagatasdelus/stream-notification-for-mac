@@ -7,6 +7,6 @@
 2. `.env`と`AppIcon.icns`, `AppIcon.png`をルートに配置し、`.env`にTwitchAPIの`Client_ID`と`Client_Secret`を記述
 
 4. `
-nuitka --standalone --follow-imports --macos-create-app-bundle     --macos-app-name="StreamNotification" --output-dir=build --include-data-dir=src/applescript=applescript --include-data-files=.env=.env --include-data-file=AppIcon.png=AppIcon.png --macos-app-icon=AppIcon.icns src/stream_notification.py
+nuitka --standalone --follow-imports --macos-create-app-bundle --macos-app-name="StreamNotification" --output-dir=build --include-data-dir=src/applescript=applescript --include-data-files=.env=.env --include-data-file=AppIcon.png=AppIcon.png --macos-app-icon=AppIcon.icns setup.py
 `
 を実行

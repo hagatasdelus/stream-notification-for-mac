@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "stream_notivication"
+name = "stream_notification"
 version = "1.8.3"
 description = ""
 authors = ["HaGaTa_"]
