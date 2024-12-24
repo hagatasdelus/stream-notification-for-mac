@@ -4,7 +4,7 @@
 """
 setup.py
 
-Programme start-up arrangements
+Setup script for initializing the StreamNotification application
 """
 
 __author__ = "Hagata"
