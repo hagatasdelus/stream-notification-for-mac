@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """
@@ -433,7 +432,7 @@ class StreamNotification(object):
         """
         return "__compiled__" in globals()
 
-async def notification_run() -> None:
+async def run_stream_notification() -> None:
     """Run the StreamNotification application
     """
     app = StreamNotification()
@@ -445,6 +444,3 @@ async def notification_run() -> None:
     await app.cleanup_complete_event.wait()
     if app.is_compiled():
         await app.close_terminal()
-
-if __name__ == "__main__":
-    sys.exit(asyncio.run(notification_run()))
