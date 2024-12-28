@@ -4,9 +4,8 @@ __author__ = "Hagata"
 __version__ = "0.0.1"
 __date__ = "2024/12/08 (Created: 2024/10/20)"
 
-from .twitch import TwitchAPI, TwitchAPIError
+from .twitch import TwitchAPI
 
 __all__ = [
     "TwitchAPI",
-    "TwitchAPIError",
 ]
