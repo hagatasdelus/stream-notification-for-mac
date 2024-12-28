@@ -28,17 +28,11 @@ from prompt_toolkit.validation import ValidationError, Validator
 
 from src.constants import AppConstant
 from src.enums import NotificationFormat, StreamStatus
+from src.terminal import Terminal
 from src.twitch import TwitchAPI
-from src.utils.logger import get_logger
+from src.utils import get_base_path, get_logger
 
 logger = get_logger(__name__)
-
-def get_base_path() -> Path:
-    """Get the base path of the application
-    """
-    if "__compiled__" in globals():
-        return Path(os.path.dirname(os.path.realpath(sys.argv[0])))
-    return Path(__file__).parent.resolve()
 
 class UsernameValidator(Validator):
     """UsernameValidator
@@ -80,6 +74,7 @@ class StreamNotification(object):
         self.is_running = True
         self._cleanup_tasks: list[asyncio.Task] = []
         self.cleanup_complete_event = asyncio.Event()
+        self.terminal = Terminal(self.base_dir)
 
     @asynccontextmanager
     async def initialize(self) -> AsyncIterator["StreamNotification"]:
@@ -437,10 +432,10 @@ async def run_stream_notification() -> None:
     """
     app = StreamNotification()
     if "--no-terminal" not in sys.argv and app.is_compiled():
-        await app.launch_terminal()
+        await app.terminal.launch_terminal()
         return
     run_task = asyncio.create_task(app.run())
     await run_task
     await app.cleanup_complete_event.wait()
     if app.is_compiled():
-        await app.close_terminal()
+        await app.terminal.close_terminal()
