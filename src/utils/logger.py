@@ -19,6 +19,15 @@ logging.basicConfig(
 )
 
 def get_logger(name: str) -> logging.Logger:
+    """
+    Get a logger instance.
+
+    Args:
+        name (str): The name of the logger.
+
+    Returns:
+        logging.Logger: The logger instance.
+            """
     """Get a logger instance.
     """
     return logging.getLogger(name)
