@@ -87,7 +87,7 @@ class StreamNotification(object):
         yield self
 
     async def display_message(self, message: str) -> None:
-        """メッセージを非同期に表示"""
+        """Display a message to the user"""
         print(message)
         await asyncio.sleep(0)  # イベントループに制御を戻す
 
@@ -282,59 +282,6 @@ class StreamNotification(object):
 
         await self.display_message(message)
         return True
-
-    async def launch_terminal(self) -> None:
-        """Open a new terminal window
-
-        Raises:
-            subprocess.SubprocessError: An error occurred while running the script
-            FileNotFoundError: The script was not found
-        """
-        try:
-            script_path = Path(self.base_dir, "applescript", "launch_terminal.applescript")
-        except FileNotFoundError:
-            logger.exception(traceback.format_exc())
-            return
-
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "/usr/bin/osascript",
-                script_path,
-                self.base_dir,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            await proc.communicate()
-
-        except subprocess.SubprocessError:
-            logger.exception("Failed to launch terminal window")
-        except FileNotFoundError:
-            logger.exception("Failed to find launch terminal script")
-
-    async def close_terminal(self) -> None:
-        """Close the terminal window
-
-        Raises:
-            subprocess.SubprocessError: An error occurred while running the script
-            FileNotFoundError: The script was not found
-        """
-        try:
-            script_path = Path(self.base_dir, "applescript", "close_terminal.applescript")
-        except FileNotFoundError:
-            logger.exception(traceback.format_exc())
-            return
-
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "/usr/bin/osascript",
-                script_path,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            await proc.communicate()
-        except subprocess.SubprocessError:
-            logger.exception(traceback.format_exc())
-            return
 
     async def cleanup(self) -> None:
         """Clean up the application

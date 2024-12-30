@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+"""
+terminal.py
+This module provides a class for interacting with the terminal.
+"""
+
 import asyncio
 import subprocess
 import traceback
@@ -30,6 +35,7 @@ class Terminal(object):
             await proc.communicate()
         except subprocess.SubprocessError:
             logger.exception(traceback.format_exc())
+            await self.close_terminal()
             return
 
     async def close_terminal(self) -> None:
