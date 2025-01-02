@@ -89,7 +89,7 @@ class StreamNotification(object):
     async def display_message(self, message: str) -> None:
         """Display a message to the user"""
         print(message)
-        await asyncio.sleep(0)  # イベントループに制御を戻す
+        await asyncio.sleep(0)
 
     def format_display_message(self, username: str, display_name: str, stream_title: str) -> str:
         """Formats the message to be displayed
@@ -281,6 +281,8 @@ class StreamNotification(object):
             await self._run_starting_dialog_script(message, found_title)
 
         await self.display_message(message)
+        how_to_quit = "Type [quit] to exit the application."
+        await self.display_message(how_to_quit)
         return True
 
     async def cleanup(self) -> None:
@@ -345,29 +347,37 @@ class StreamNotification(object):
         display_format = NotificationFormat(choiced_display_format)
         return username, display_format # type: ignore
 
-    async def _monitor_quit_input(self) -> None:
-        """Monitor for 'quit' input to behave like a KeyboardInterrupt."""
+    async def listen_for_quit(self) -> None:
+        """Asynchronously listen for quit input and trigger cleanup."""
         loop = asyncio.get_event_loop()
         while self.is_running:
-            user_input = await loop.run_in_executor(None, input, "")
-            if user_input.strip().lower() == "quit":
-                raise KeyboardInterrupt
+            line = await loop.run_in_executor(None, sys.stdin.readline)
+            if line.strip().lower() == "quit":
+                print("Quit command received. Terminating application...")
+                loop.create_task(self.cleanup())
+                break
 
     async def run(self) -> None:
-        """Main execution loop of the application"""
+        """Main execution loop of the application
+
+        Prompts the user for the streamer's username and the notification method,
+        then checks for the streamer's existence.
+        """
         async with self.initialize():
             try:
+                # 監視設定の入力
                 username, display_format = await self.input_monitoring_settings()
                 # ストリーマーの存在確認
                 if username and display_format:
                     if not await self.check_streamer_existence(username, display_format):
                         return
 
+                    # 配信状態の監視を開始
                     status_task = asyncio.create_task(self.check_stream_status(username, display_format))
-                    input_task = asyncio.create_task(self._monitor_quit_input())
-                    self._cleanup_tasks.extend([status_task, input_task])
-
-                    await asyncio.gather(status_task, input_task)
+                    self._cleanup_tasks.append(status_task)
+                    quit_task = asyncio.create_task(self.listen_for_quit())
+                    self._cleanup_tasks.append(quit_task)
+                    await asyncio.wait([status_task, quit_task], return_when=asyncio.FIRST_COMPLETED)
             except (KeyboardInterrupt, asyncio.CancelledError):
                 logger.info("Application shutdown requested")
             finally:
