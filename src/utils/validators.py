@@ -20,7 +20,7 @@ class UsernameValidator(Validator):
         """Validate the username input
 
         Args:
-            document (Document): The input document
+            document: The input document
 
         Raises:
             ValidationError: The username is empty or contains non-alphanumeric characters
@@ -33,12 +33,13 @@ class UsernameValidator(Validator):
 class FormatValidator(Validator):
     """FormatValidator
 
+    FormatValidator is a prompt_toolkit Validator that validates the format input
     """
     def validate(self, document) -> None:
         """Validate the format input
 
         Args:
-            document (Document): The input document(display format)
+            document: The input document(display format)
 
         Raises:
             ValidationError: The format is invalid. Not Notification or Dialog
