@@ -345,25 +345,29 @@ class StreamNotification(object):
         display_format = NotificationFormat(choiced_display_format)
         return username, display_format # type: ignore
 
-    async def run(self) -> None:
-        """Main execution loop of the application
+    async def _monitor_quit_input(self) -> None:
+        """Monitor for 'quit' input to behave like a KeyboardInterrupt."""
+        loop = asyncio.get_event_loop()
+        while self.is_running:
+            user_input = await loop.run_in_executor(None, input, "")
+            if user_input.strip().lower() == "quit":
+                raise KeyboardInterrupt
 
-        Prompts the user for the streamer's username and the notification method,
-        then checks for the streamer's existence.
-        """
+    async def run(self) -> None:
+        """Main execution loop of the application"""
         async with self.initialize():
             try:
-                # 監視設定の入力
                 username, display_format = await self.input_monitoring_settings()
                 # ストリーマーの存在確認
                 if username and display_format:
                     if not await self.check_streamer_existence(username, display_format):
                         return
 
-                    # 配信状態の監視を開始
                     status_task = asyncio.create_task(self.check_stream_status(username, display_format))
-                    self._cleanup_tasks.append(status_task)
-                    await status_task
+                    input_task = asyncio.create_task(self._monitor_quit_input())
+                    self._cleanup_tasks.extend([status_task, input_task])
+
+                    await asyncio.gather(status_task, input_task)
             except (KeyboardInterrupt, asyncio.CancelledError):
                 logger.info("Application shutdown requested")
             finally:
