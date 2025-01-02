@@ -17,7 +17,9 @@ import os
 import re
 import subprocess
 import sys
+import termios
 import traceback
+import tty
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
@@ -230,13 +232,6 @@ class StreamNotification(object):
         while self.is_running:
             display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
 
-            if stream_title is not None:
-                logger.info(
-                    "Checking stream status: %s - %s",
-                    username,
-                    StreamStatus.STREAMING.value.title()
-                )
-
             if display_name and stream_title:
                 url_string = f"https://www.twitch.tv/{username}"
                 a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
@@ -281,7 +276,7 @@ class StreamNotification(object):
             await self._run_starting_dialog_script(message, found_title)
 
         await self.display_message(message)
-        how_to_quit = "Type [quit] to exit the application."
+        how_to_quit = "Type [q] to exit the application."
         await self.display_message(how_to_quit)
         return True
 
@@ -348,13 +343,27 @@ class StreamNotification(object):
         return username, display_format # type: ignore
 
     async def listen_for_quit(self) -> None:
-        """Asynchronously listen for quit input and trigger cleanup."""
+        """This method listens for the 'q' keypress and triggers the cleanup process when detected.
+
+        Raises:
+            EOFError: If the input stream is closed
+            KeyboardInterrupt: If the input stream is interrupted
+        """
+        def _read_char() -> str:
+            # 標準入力の設定を保存
+            old_settings = termios.tcgetattr(sys.stdin)
+            try:
+                tty.setraw(sys.stdin.fileno()) # 標準入力を非カノニカルモードに設定
+                return sys.stdin.read(1)
+            finally:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings) # 標準入力の設定を元に戻す
+
         loop = asyncio.get_event_loop()
         while self.is_running:
-            line = await loop.run_in_executor(None, sys.stdin.readline)
-            if line.strip().lower() == "quit":
-                print("Quit command received. Terminating application...")
-                loop.create_task(self.cleanup())
+            char = await loop.run_in_executor(None, _read_char)
+            if char.lower() == "q":
+                print("\nQuit command received. Terminating application...")
+                await self.cleanup()
                 break
 
     async def run(self) -> None:
