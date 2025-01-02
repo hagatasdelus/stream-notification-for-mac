@@ -241,7 +241,6 @@ class StreamNotification(object):
                     await self._run_notification_script(message, notification_title)
                 else:
                     await self._run_dialog_script(message, notification_title, a_url)
-                await self.display_message(message)
                 await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
             else:
                 await asyncio.sleep(AppConstant.CHECK_INTERVAL)
