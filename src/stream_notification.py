@@ -9,7 +9,7 @@ which monitors the streaming status of a Twitch streamer and provides notificati
 
 __author__ = "Hagata"
 __version__ = "0.0.1"
-__date__ = "2024/12/23 (Created: 2024/10/20)"
+__date__ = "2025/1/3 (Created: 2024/10/20)"
 
 import asyncio
 import contextlib
@@ -29,7 +29,7 @@ from InquirerPy import inquirer
 from prompt_toolkit.validation import ValidationError, Validator
 
 from src.constants import AppConstant
-from src.enums import NotificationFormat, StreamStatus
+from src.enums import NotificationFormat
 from src.terminal import Terminal
 from src.twitch import TwitchAPI
 from src.utils import get_base_path, get_logger
