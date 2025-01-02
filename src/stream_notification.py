@@ -14,7 +14,6 @@ __date__ = "2025/1/3 (Created: 2024/10/20)"
 import asyncio
 import contextlib
 import os
-import re
 import subprocess
 import sys
 import termios
@@ -26,34 +25,14 @@ from typing import AsyncIterator
 
 import urllib3.util
 from InquirerPy import inquirer
-from prompt_toolkit.validation import ValidationError, Validator
 
 from src.constants import AppConstant
 from src.enums import NotificationFormat
 from src.terminal import Terminal
 from src.twitch import TwitchAPI
-from src.utils import get_base_path, get_logger
+from src.utils import FormatValidator, UsernameValidator, get_base_path, get_logger
 
 logger = get_logger(__name__)
-
-class UsernameValidator(Validator):
-    """UsernameValidator
-
-    UsernameValidator is a prompt_toolkit Validator that validates the username input
-    """
-    def validate(self, document) -> None:
-        """Validate the username input
-
-        Args:
-            document (Document): The input document
-
-        Raises:
-            ValidationError: The username is empty or contains non-alphanumeric characters
-        """
-        if not document.text: # 入力が空の場合
-            raise ValidationError(message="Username cannot be empty", cursor_position=len(document.text))
-        if not re.match(r"^[a-zA-Z0-9_]+$", document.text): # 英数字とアンダースコア以外が含まれている場合
-            raise ValidationError(message="Username must be alphanumeric", cursor_position=len(document.text))
 
 class StreamNotification(object):
     """StreamNotification
@@ -275,7 +254,7 @@ class StreamNotification(object):
             await self._run_starting_dialog_script(message, found_title)
 
         await self.display_message(message)
-        how_to_quit = "Type [q] to exit the application."
+        how_to_quit = "Type [q] to quit the application."
         await self.display_message(how_to_quit)
         return True
 
@@ -335,6 +314,7 @@ class StreamNotification(object):
         choiced_display_format = await inquirer.fuzzy( # type: ignore
             message="Which notification method do you want to use?",
             choices=[fmt.value for fmt in NotificationFormat.__members__.values()],
+            validate=FormatValidator(),
             instruction="[Use arrows to move, type to filter]",
             style=AppConstant.CUSTOM_STYLE,
         ).execute_async()
