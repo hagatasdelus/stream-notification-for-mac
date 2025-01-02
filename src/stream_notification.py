@@ -9,7 +9,7 @@ which monitors the streaming status of a Twitch streamer and provides notificati
 
 __author__ = "Hagata"
 __version__ = "0.0.1"
-__date__ = "2024/12/23 (Created: 2024/10/20)"
+__date__ = "2025/1/3 (Created: 2024/10/20)"
 
 import asyncio
 import contextlib
@@ -17,7 +17,9 @@ import os
 import re
 import subprocess
 import sys
+import termios
 import traceback
+import tty
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
@@ -27,7 +29,7 @@ from InquirerPy import inquirer
 from prompt_toolkit.validation import ValidationError, Validator
 
 from src.constants import AppConstant
-from src.enums import NotificationFormat, StreamStatus
+from src.enums import NotificationFormat
 from src.terminal import Terminal
 from src.twitch import TwitchAPI
 from src.utils import get_base_path, get_logger
@@ -89,7 +91,7 @@ class StreamNotification(object):
     async def display_message(self, message: str) -> None:
         """Display a message to the user"""
         print(message)
-        await asyncio.sleep(0)  # イベントループに制御を戻す
+        await asyncio.sleep(0)
 
     def format_display_message(self, username: str, display_name: str, stream_title: str) -> str:
         """Formats the message to be displayed
@@ -230,13 +232,6 @@ class StreamNotification(object):
         while self.is_running:
             display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
 
-            if stream_title is not None:
-                logger.info(
-                    "Checking stream status: %s - %s",
-                    username,
-                    StreamStatus.STREAMING.value.title()
-                )
-
             if display_name and stream_title:
                 url_string = f"https://www.twitch.tv/{username}"
                 a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
@@ -246,7 +241,6 @@ class StreamNotification(object):
                     await self._run_notification_script(message, notification_title)
                 else:
                     await self._run_dialog_script(message, notification_title, a_url)
-                await self.display_message(message)
                 await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
             else:
                 await asyncio.sleep(AppConstant.CHECK_INTERVAL)
@@ -281,6 +275,8 @@ class StreamNotification(object):
             await self._run_starting_dialog_script(message, found_title)
 
         await self.display_message(message)
+        how_to_quit = "Type [q] to exit the application."
+        await self.display_message(how_to_quit)
         return True
 
     async def cleanup(self) -> None:
@@ -345,6 +341,30 @@ class StreamNotification(object):
         display_format = NotificationFormat(choiced_display_format)
         return username, display_format # type: ignore
 
+    async def listen_for_quit(self) -> None:
+        """This method listens for the 'q' keypress and triggers the cleanup process when detected.
+
+        Raises:
+            EOFError: If the input stream is closed
+            KeyboardInterrupt: If the input stream is interrupted
+        """
+        def _read_char() -> str:
+            # 標準入力の設定を保存
+            old_settings = termios.tcgetattr(sys.stdin)
+            try:
+                tty.setraw(sys.stdin.fileno()) # 標準入力を非カノニカルモードに設定
+                return sys.stdin.read(1)
+            finally:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings) # 標準入力の設定を元に戻す
+
+        loop = asyncio.get_event_loop()
+        while self.is_running:
+            char = await loop.run_in_executor(None, _read_char)
+            if char.lower() == "q":
+                print("\nQuit command received. Terminating application...")
+                await self.cleanup()
+                break
+
     async def run(self) -> None:
         """Main execution loop of the application
 
@@ -363,7 +383,9 @@ class StreamNotification(object):
                     # 配信状態の監視を開始
                     status_task = asyncio.create_task(self.check_stream_status(username, display_format))
                     self._cleanup_tasks.append(status_task)
-                    await status_task
+                    quit_task = asyncio.create_task(self.listen_for_quit())
+                    self._cleanup_tasks.append(quit_task)
+                    await asyncio.wait([status_task, quit_task], return_when=asyncio.FIRST_COMPLETED)
             except (KeyboardInterrupt, asyncio.CancelledError):
                 logger.info("Application shutdown requested")
             finally:
