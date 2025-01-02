@@ -20,7 +20,7 @@ class UsernameValidator(Validator):
         """Validate the username input
 
         Args:
-            document: The input document
+            document (Document): The input document
 
         Raises:
             ValidationError: The username is empty or contains non-alphanumeric characters
@@ -39,11 +39,14 @@ class FormatValidator(Validator):
         """Validate the format input
 
         Args:
-            document: The input document(display format)
+            document (Document): The input document(display format)
 
         Raises:
             ValidationError: The format is invalid. Not Notification or Dialog
         """
         valid_formats = [fmt.value for fmt in NotificationFormat.__members__.values()]
         if document.text not in valid_formats:
-            raise ValidationError(message="Invalid notification method", cursor_position=len(document.text))
+            raise ValidationError(
+                message="Invalid notification method. Valid options are: Notification, Dialog",
+                cursor_position=len(document.text)
+            )
