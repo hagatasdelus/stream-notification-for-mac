@@ -152,10 +152,6 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        # current_direcory = os.getcwd()
-        # icon_name = "AppIcon.png"
-        # icon_path = os.path.join(current_direcory, icon_name)
-
         script_arguments = [message, title, a_url.url, self.get_icon_path()]
 
         try:
@@ -187,11 +183,6 @@ class StreamNotification(object):
         except FileNotFoundError:
             logger.exception(traceback.format_exc())
             return
-
-        # current_direcory = os.getcwd()
-        # icon_name = "AppIcon.png"
-        # icon_path = os.path.join(current_direcory, icon_name)
-        # icon_path = os.path.join(self.base_dir, icon_name)
 
         script_arguments = [message, title, self.get_icon_path()]
 
