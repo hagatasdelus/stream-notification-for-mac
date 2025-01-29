@@ -9,7 +9,7 @@ which monitors the streaming status of a Twitch streamer and provides notificati
 
 __author__ = "Hagata"
 __version__ = "0.0.1"
-__date__ = "2025/1/3 (Created: 2024/10/20)"
+__date__ = "2025/1/30 (Created: 2024/10/20)"
 
 import asyncio
 import contextlib
