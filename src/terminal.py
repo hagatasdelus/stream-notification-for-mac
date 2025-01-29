@@ -7,7 +7,7 @@ This module provides a class for interacting with the terminal.
 
 __author__ = "Hagata"
 __version__ = "0.0.1"
-__date__ = "2024/12/29 (Created: 2024/12/29)"
+__date__ = "2025/1/30 (Created: 2024/12/29)"
 
 import asyncio
 import subprocess
@@ -63,7 +63,7 @@ class Terminal(object):
             SubprocessError: If an error occurs while executing the applescript.
         """
         try:
-            script_path = Path("applescript", "close_terminal.applescript")
+            script_path = Path(self.base_dir, "applescript", "close_terminal.applescript")
         except FileNotFoundError:
             return
 

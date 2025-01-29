@@ -9,7 +9,7 @@ which monitors the streaming status of a Twitch streamer and provides notificati
 
 __author__ = "Hagata"
 __version__ = "0.0.1"
-__date__ = "2025/1/3 (Created: 2024/10/20)"
+__date__ = "2025/1/30 (Created: 2024/10/20)"
 
 import asyncio
 import contextlib
@@ -71,6 +71,15 @@ class StreamNotification(object):
         """Display a message to the user"""
         print(message)
         await asyncio.sleep(0)
+
+    def get_icon_path(self) -> str:
+        """Get the icon path
+
+        Returns:
+            str: The icon path
+        """
+        icon_name = "AppIcon.png"
+        return os.path.join(self.base_dir, icon_name)
 
     def format_display_message(self, username: str, display_name: str, stream_title: str) -> str:
         """Formats the message to be displayed
@@ -143,11 +152,7 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        current_direcory = os.getcwd()
-        icon_name = "AppIcon.png"
-        icon_path = os.path.join(current_direcory, icon_name)
-
-        script_arguments = [message, title, a_url.url, icon_path]
+        script_arguments = [message, title, a_url.url, self.get_icon_path()]
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -179,11 +184,7 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        current_direcory = os.getcwd()
-        icon_name = "AppIcon.png"
-        icon_path = os.path.join(current_direcory, icon_name)
-
-        script_arguments = [message, title, icon_path]
+        script_arguments = [message, title, self.get_icon_path()]
 
         try:
             proc = await asyncio.create_subprocess_exec(
