@@ -152,7 +152,8 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        script_arguments = [message, title, a_url.url, self.get_icon_path()]
+        script_arguments = [message, title, a_url.url, self.base_dir.as_posix()]
+        # script_arguments = [message, title, a_url.url]
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -184,7 +185,8 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        script_arguments = [message, title, self.get_icon_path()]
+        script_arguments = [message, title, self.base_dir.as_posix()]
+        # script_arguments = [message, title]
 
         try:
             proc = await asyncio.create_subprocess_exec(
