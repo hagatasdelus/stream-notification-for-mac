@@ -393,7 +393,6 @@ async def run_stream_notification() -> None:
     if "--no-terminal" not in sys.argv and app.is_compiled():
         await app.terminal.launch_terminal()
         return
-    print(f"app.base_dir: {app.base_dir}")
     run_task = asyncio.create_task(app.run())
     await run_task
     await app.cleanup_complete_event.wait()
