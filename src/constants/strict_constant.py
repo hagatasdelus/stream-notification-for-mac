@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
 
-"""
-This module defines a `StrictConstant` class and its metaclass `StrictConstantMeta`
-which enforce strict immutability on class attributes.
-"""
-
 __author__ = "Hagata"
 __version__ = "0.0.1"
 __date__ = "2024/12/08 (Created: 2024/10/20)"

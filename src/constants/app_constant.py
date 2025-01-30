@@ -4,10 +4,6 @@
 This module defines constants used throughout the application.
 """
 
-__author__ = "Hagata"
-__version__ = "0.0.1"
-__date__ = "2024/12/08 (Created: 2024/10/20)"
-
 from InquirerPy.utils import InquirerPyStyle, get_style
 
 from .strict_constant import StrictConstant

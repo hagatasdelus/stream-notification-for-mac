@@ -4,10 +4,6 @@
 This module provides an asynchronous client for interacting with the Twitch API.
 """
 
-__author__ = "Hagata"
-__version__ = "0.0.1"
-__date__ = "2025/1/31 (Created: 2024/10/20)"
-
 import asyncio
 import logging
 import os

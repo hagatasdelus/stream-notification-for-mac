@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
 
-__author__ = "Hagata"
-__version__ = "0.0.1"
-__date__ = "2025/1/3 (Created: 2025/1/3)"
-
 import re
 
 from prompt_toolkit.validation import ValidationError, Validator
