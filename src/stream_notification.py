@@ -152,8 +152,7 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        script_arguments = [message, title, a_url.url, self.base_dir.as_posix()]
-        # script_arguments = [message, title, a_url.url]
+        script_arguments = [message, title, a_url.url, os.path.join(self.base_dir.parent.as_posix(), "Resources")]
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -185,8 +184,7 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        script_arguments = [message, title, self.base_dir.as_posix()]
-        # script_arguments = [message, title]
+        script_arguments = [message, title, os.path.join(self.base_dir.parent.as_posix(), "Resources")]
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -242,7 +240,10 @@ class StreamNotification(object):
         """
         await self.display_message("Please wait a moment.")
 
-        broadcaster_id = await self.twitch_api.get_broadcaster_id(username)
+        resources_path = Path(
+            os.path.join(self.base_dir.parent.as_posix(), "Resources", "profile_image.png")
+        )
+        broadcaster_id = await self.twitch_api.get_broadcaster_id(username, resources_path)
         if not broadcaster_id:
             message = f"{username} not found."
             await self.display_message(message)
@@ -283,6 +284,15 @@ class StreamNotification(object):
 
         # Twitchクライアントのクリーンアップ
         await self.twitch_api.close()
+
+        try:
+            resources_path = Path(
+                os.path.join(self.base_dir.parent.as_posix(), "Resources", "profile_image.png")
+            )
+            if resources_path.exists():
+                resources_path.unlink()
+        except OSError:
+            logger.warning("Failed to remove profile image.png")
 
         logger.info("Application cleanup completed")
         self.cleanup_complete_event.set()
@@ -386,6 +396,7 @@ async def run_stream_notification() -> None:
     if "--no-terminal" not in sys.argv and app.is_compiled():
         await app.terminal.launch_terminal()
         return
+    print(f"app.base_dir: {app.base_dir}")
     run_task = asyncio.create_task(app.run())
     await run_task
     await app.cleanup_complete_event.wait()

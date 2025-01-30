@@ -11,6 +11,7 @@ __date__ = "2024/12/08 (Created: 2024/10/20)"
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -24,6 +25,11 @@ logger = logging.getLogger(__name__)
 class TwitchAPIError(Exception):
     """Exception raised for errors in the Twitch API client.
     """
+
+def _write_content(filepath: Path, data: bytes) -> None:
+    """Helper function to handle blocking file writes."""
+    with open(filepath, "wb") as f:
+        f.write(data)
 
 class TwitchAPI:
     """Asynchronous client for interacting with the Twitch API.
@@ -150,26 +156,20 @@ class TwitchAPI:
             data = await response.json()
             return data.get("data")
 
-    async def get_broadcaster_id(self, name: str) -> str | None:
-        """Get the broadcaster ID for a given name."""
+    async def get_broadcaster_id(self, name: str, save_path: Path) -> str | None:
+        """Get the broadcaster ID for a given name and download profile image."""
         url = self.base_url + "users"
         query_params = {"login": name}
-
         try:
             data = await self._get_response(url, query_params)
             if not data:
                 return None
+            image_url = data[0].get("profile_image_url")
+            await self.download_profile_image(image_url, save_path)
             return data[0].get("id")
         except TwitchAPIError:
             logger.exception("Failed to get broadcaster ID for %s", name)
             return None
-
-    def _get_stream_data(
-        self,
-        stream_data: list[dict[str, Any]]
-    ) -> tuple[str | None, str | None]:
-        """Get the stream data from the API response."""
-        return stream_data[0].get("user_name"), stream_data[0].get("title")
 
     async def get_stream_by_id(
         self,
@@ -205,3 +205,25 @@ class TwitchAPI:
         except TwitchAPIError:
             logger.exception("Failed to get stream data for user %s", user_name)
             return None, None
+
+    async def download_profile_image(self, image_url: str | None, save_path: Path) -> None:
+        """Download the broadcaster's profile image and save it to save_path."""
+        if not self.session:
+            raise TwitchAPIError(AppConstant.ERROR_SESSION_NOT_INITIALIZED)
+        if not image_url:
+            return
+        try:
+            async with self.session.get(image_url) as response:
+                response.raise_for_status()
+                content = await response.read()
+            await asyncio.to_thread(_write_content, save_path, content)
+        except aiohttp.ClientError as e:
+            logger.exception("Failed to download profile image.")
+            raise TwitchAPIError(str(e)) from e
+
+    def _get_stream_data(
+        self,
+        stream_data: list[dict[str, Any]]
+    ) -> tuple[str | None, str | None]:
+        """Get the stream data from the API response."""
+        return stream_data[0].get("user_name"), stream_data[0].get("title")
