@@ -1,12 +1,46 @@
-# Twitch Notification App
+<div align="center">
 
-このアプリケーションは、TwitchAPI、Python、およびAppleScriptを用いてMac内に指定したストリーマーの配信通知を行うものである。
+# Stream Notification
 
-## インストールと実行
-1. `poetry install`
-2. `.env`と`AppIcon.icns`, `AppIcon.png`をルートに配置し、`.env`にTwitchAPIの`Client_ID`と`Client_Secret`を記述
+Notification of the start of a Twitch Stream for a specified streamer on MacOS
 
-4. `
-nuitka --standalone --follow-imports --macos-create-app-bundle --macos-app-name="StreamNotification" --output-dir=build --include-data-dir=src/applescript=applescript --include-data-files=.env=.env --include-data-file=AppIcon.png=AppIcon.png --macos-app-icon=AppIcon.icns setup.py
-`
-を実行
+<br>
+<br>
+
+
+</div>
+
+<div align="center">
+
+</div>
+
+> 
+## Installation
+
+
+```sh
+poetry install
+```
+
+## Build
+> **Note**
+> Set the following in .env
+```.env
+Client_ID=
+Client_Secret=
+```
+
+```sh
+nuitka --standalone --follow-imports --macos-create-app-bundle --macos-app-name="StreamNotification" --output-dir=build --include-data-dir=src/applescript=applescript --include-data-files=.env=.env --macos-app-icon=AppIcon.icns setup.py
+```
+
+## License
+
+MIT
+
+### Modules
+
+- [inquirerpy](https://github.com/kazhala/InquirerPy)
+- [python-prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)
+- [nuitka](https://github.com/Nuitka/Nuitka)
+- [aiohttp](https://github.com/aio-libs/aiohttp)
