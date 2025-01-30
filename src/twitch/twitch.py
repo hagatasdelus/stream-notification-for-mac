@@ -6,10 +6,11 @@ This module provides an asynchronous client for interacting with the Twitch API.
 
 __author__ = "Hagata"
 __version__ = "0.0.1"
-__date__ = "2024/12/08 (Created: 2024/10/20)"
+__date__ = "2025/1/31 (Created: 2024/10/20)"
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,10 @@ def _write_content(filepath: Path, data: bytes) -> None:
     """Helper function to handle blocking file writes."""
     with open(filepath, "wb") as f:
         f.write(data)
+
+def _get_filename_from_url(url: str) -> str:
+    """Extract the filename from given URL."""
+    return os.path.basename(url)
 
 class TwitchAPI:
     """Asynchronous client for interacting with the Twitch API.
@@ -156,20 +161,25 @@ class TwitchAPI:
             data = await response.json()
             return data.get("data")
 
-    async def get_broadcaster_id(self, name: str, save_path: Path) -> str | None:
-        """Get the broadcaster ID for a given name and download profile image."""
+    async def get_broadcaster_id(self, name: str, resources_dir: Path) -> tuple[str | None, str | None]:
+        """Get the broadcaster ID and the downloaded filename."""
         url = self.base_url + "users"
         query_params = {"login": name}
         try:
             data = await self._get_response(url, query_params)
             if not data:
-                return None
+                return None, None
+
             image_url = data[0].get("profile_image_url")
-            await self.download_profile_image(image_url, save_path)
-            return data[0].get("id")
+            filename = None
+            if image_url:
+                filename = _get_filename_from_url(image_url)
+                await self.download_profile_image(image_url, resources_dir / filename)
+
+            return data[0].get("id"), filename
         except TwitchAPIError:
             logger.exception("Failed to get broadcaster ID for %s", name)
-            return None
+            return None, None
 
     async def get_stream_by_id(
         self,

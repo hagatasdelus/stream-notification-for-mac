@@ -9,7 +9,7 @@ which monitors the streaming status of a Twitch streamer and provides notificati
 
 __author__ = "Hagata"
 __version__ = "0.0.1"
-__date__ = "2025/1/30 (Created: 2024/10/20)"
+__date__ = "2025/1/31 (Created: 2024/10/20)"
 
 import asyncio
 import contextlib
@@ -71,15 +71,6 @@ class StreamNotification(object):
         """Display a message to the user"""
         print(message)
         await asyncio.sleep(0)
-
-    def get_icon_path(self) -> str:
-        """Get the icon path
-
-        Returns:
-            str: The icon path
-        """
-        icon_name = "AppIcon.png"
-        return os.path.join(self.base_dir, icon_name)
 
     def format_display_message(self, username: str, display_name: str, stream_title: str) -> str:
         """Formats the message to be displayed
@@ -152,7 +143,13 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        script_arguments = [message, title, a_url.url, os.path.join(self.base_dir.parent.as_posix(), "Resources")]
+        filename = getattr(self, "downloaded_profile_image_name", None) or "profile_image.png"
+        icon_full_path = os.path.join(
+            self.base_dir.parent.as_posix(),
+            "Resources",
+            filename
+        )
+        script_arguments = [message, title, a_url.url, icon_full_path]
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -167,12 +164,13 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-    async def _run_starting_dialog_script(self, message: str, title: str) -> None:
+    async def _run_starting_dialog_script(self, message: str, title: str, icon_full_path: str) -> None:
         """Run to display dialog Applescript to start monitoring
 
         Args:
             message (str): The message to display
             title (str): The title of the dialog
+            icon_full_path (str): The full path to the icon
 
         Raises:
             subprocess.SubprocessError: An error occurred while running the script
@@ -184,7 +182,7 @@ class StreamNotification(object):
             logger.exception(traceback.format_exc())
             return
 
-        script_arguments = [message, title, os.path.join(self.base_dir.parent.as_posix(), "Resources")]
+        script_arguments = [message, title, icon_full_path]
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -240,14 +238,16 @@ class StreamNotification(object):
         """
         await self.display_message("Please wait a moment.")
 
-        resources_path = Path(
-            os.path.join(self.base_dir.parent.as_posix(), "Resources", "profile_image.png")
-        )
-        broadcaster_id = await self.twitch_api.get_broadcaster_id(username, resources_path)
-        if not broadcaster_id:
+        resources_dir = Path(os.path.join(self.base_dir.parent.as_posix(), "Resources"))
+        result = await self.twitch_api.get_broadcaster_id(username, resources_dir)
+        if not result or not result[0]:
             message = f"{username} not found."
             await self.display_message(message)
             return False
+
+        broadcaster_id, image_filename = result
+        image_filename = image_filename or "profile_image.png"
+        self.downloaded_profile_image_name = image_filename
 
         message = f"{username} found. You will be notified when the streaming starts."
 
@@ -255,7 +255,8 @@ class StreamNotification(object):
         if display_format == NotificationFormat.NOTIFICATION:
             await self._run_notification_script(message, found_title)
         else:
-            await self._run_starting_dialog_script(message, found_title)
+            icon_path = os.path.join(resources_dir.as_posix(), image_filename)
+            await self._run_starting_dialog_script(message, found_title, icon_path)
 
         await self.display_message(message)
         how_to_quit = "Type [q] to quit the application."
@@ -286,13 +287,13 @@ class StreamNotification(object):
         await self.twitch_api.close()
 
         try:
-            resources_path = Path(
-                os.path.join(self.base_dir.parent.as_posix(), "Resources", "profile_image.png")
-            )
-            if resources_path.exists():
-                resources_path.unlink()
+            if hasattr(self, "downloaded_profile_image_name"):
+                filename = self.downloaded_profile_image_name or "profile_image.png"
+                resources_path = Path(self.base_dir.parent.as_posix(), "Resources", filename)
+                if resources_path.exists():
+                    resources_path.unlink()
         except OSError:
-            logger.warning("Failed to remove profile image.png")
+            logger.warning("Failed to remove downloaded profile image.")
 
         logger.info("Application cleanup completed")
         self.cleanup_complete_event.set()
