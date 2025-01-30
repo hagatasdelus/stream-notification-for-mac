@@ -5,10 +5,6 @@ terminal.py
 This module provides a class for interacting with the terminal.
 """
 
-__author__ = "Hagata"
-__version__ = "0.0.1"
-__date__ = "2025/1/30 (Created: 2024/12/29)"
-
 import asyncio
 import subprocess
 import traceback

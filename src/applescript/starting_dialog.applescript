@@ -1,9 +1,3 @@
-(*
-Author: Hagata
-Version: 0.0.1
-Date: 2024/12/21 (Created: 2024/12/21)
-*)
-
 on run argv
     set message to item 1 of argv
     set title to item 2 of argv

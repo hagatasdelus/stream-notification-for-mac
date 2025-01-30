@@ -7,10 +7,6 @@ setup.py
 Setup script for initializing the StreamNotification application
 """
 
-__author__ = "Hagata"
-__version__ = "0.0.1"
-__date__ = "2024/12/23 (Created: 2024/10/20)"
-
 import asyncio
 import sys
 

@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
 
-"""
-This module defines a constant class and its associated metaclass to enforce immutability
-and prevent redefinition of constants.
-"""
-
 __author__ = "Hagata"
 __version__ = "0.0.1"
 __date__ = "2024/12/08 (Created: 2024/10/20)"
