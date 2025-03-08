@@ -7,32 +7,35 @@ Notification of the start of a Twitch Stream for a specified streamer on MacOS
 <br>
 <br>
 
-
 </div>
 
 <div align="center">
 
 </div>
 
-> 
-## Installation
+>
 
+## Installation
 
 ```sh
 poetry install
 ```
 
 ## Build
+
 > **Note**
 > Set the following in .env
+
 ```.env
 Client_ID=
 Client_Secret=
 ```
 
 ```sh
-nuitka --standalone --follow-imports --macos-create-app-bundle --macos-app-name="StreamNotification" --output-dir=build --include-data-dir=src/applescript=applescript --include-data-files=.env=.env --macos-app-icon=AppIcon.icns setup.py
+nuitka --standalone --follow-imports --macos-create-app-bundle --output-dir=build --include-data-dir=src/applescript=applescript --include-data-files=.env=.env setup.py
 ```
+
+Add the `--macos-app-name` and `--macos-app-icon` options if necessary.
 
 ## License
 
