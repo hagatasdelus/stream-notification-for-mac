@@ -229,27 +229,27 @@ class StreamNotification(object):
                 else:
                     await asyncio.sleep(AppConstant.CHECK_INTERVAL)
             except TwitchAPITimeoutError:
-                logger.error("Connection timed out. Terminating application.")
+                logger.exception("Connection timed out. Terminating application.")
                 print("\nConnection to Twitch API timed out. Terminating application...")
                 await self.cleanup()
                 break
 
     async def download_profile_image(self, image_url: str | None, save_path: Path) -> None:
         """Download the broadcaster's profile image and save it to save_path.
-        
+
         Args:
             image_url (str | None): The URL of the image to download
             save_path (Path): The path to save the image to
         """
         if not image_url or not self.twitch_api.session:
             return
-        
+
         try:
             async with self.twitch_api.session.get(image_url) as response:
                 response.raise_for_status()
                 content = await response.read()
             await asyncio.to_thread(_write_content, save_path, content)
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to download profile image.")
 
     async def check_streamer_existence(self, username: str, display_format: NotificationFormat) -> bool:
@@ -271,7 +271,7 @@ class StreamNotification(object):
 
         image_url = broadcaster.get("profile_image_url")
         image_filename = None
-        
+
         if image_url:
             image_filename = _get_filename_from_url(image_url)
             await self.download_profile_image(image_url, resources_dir / image_filename)
