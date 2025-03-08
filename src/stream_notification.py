@@ -25,7 +25,7 @@ from InquirerPy import inquirer
 from src.constants import AppConstant
 from src.enums import NotificationFormat
 from src.terminal import Terminal
-from src.twitch import TwitchAPI
+from src.twitch import TwitchAPI, TwitchAPITimeoutError
 from src.utils import FormatValidator, UsernameValidator, get_base_path, get_logger
 
 logger = get_logger(__name__)
@@ -210,23 +210,29 @@ class StreamNotification(object):
             display_format (str): The display format to use
 
         Raises:
-            TwitchAPIError: An error occurred while checking the stream status
+            TwitchAPITimeoutError: If the Twitch API request times out
         """
         while self.is_running:
-            display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
+            try:
+                display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
 
-            if display_name and stream_title:
-                url_string = f"https://www.twitch.tv/{username}"
-                a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
-                message = self.format_display_message(username, display_name, stream_title)
-                notification_title = "Stream Started"
-                if display_format == NotificationFormat.NOTIFICATION:
-                    await self._run_notification_script(message, notification_title)
+                if display_name and stream_title:
+                    url_string = f"https://www.twitch.tv/{username}"
+                    a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
+                    message = self.format_display_message(username, display_name, stream_title)
+                    notification_title = "Stream Started"
+                    if display_format == NotificationFormat.NOTIFICATION:
+                        await self._run_notification_script(message, notification_title)
+                    else:
+                        await self._run_dialog_script(message, notification_title, a_url)
+                    await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
                 else:
-                    await self._run_dialog_script(message, notification_title, a_url)
-                await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
-            else:
-                await asyncio.sleep(AppConstant.CHECK_INTERVAL)
+                    await asyncio.sleep(AppConstant.CHECK_INTERVAL)
+            except TwitchAPITimeoutError:
+                logger.error("Connection timed out. Terminating application.")
+                print("\nConnection to Twitch API timed out. Terminating application...")
+                await self.cleanup()
+                break
 
     async def download_profile_image(self, image_url: str | None, save_path: Path) -> None:
         """Download the broadcaster's profile image and save it to save_path.

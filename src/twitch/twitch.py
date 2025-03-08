@@ -21,6 +21,10 @@ class TwitchAPIError(Exception):
     """Exception raised for errors in the Twitch API client.
     """
 
+class TwitchAPITimeoutError(TwitchAPIError):
+    """Exception raised when a Twitch API request times out.
+    """
+
 class TwitchAPI:
     """Asynchronous client for interacting with the Twitch API.
 
@@ -151,11 +155,21 @@ class TwitchAPI:
             
         Raises:
             TwitchAPIError: If the request fails
+            TwitchAPITimeoutError: If the request times out
         """
-        async with self._make_request(url, query_params) as response:
-            response.raise_for_status()
-            data = await response.json()
-            return data.get("data")
+        try:
+            async with self._make_request(url, query_params) as response:
+                response.raise_for_status()
+                data = await response.json()
+                return data.get("data")
+        except asyncio.TimeoutError as e:
+            logger.exception("Timeout error occurred while making API request")
+            error_msg = f"API request timed out: {str(e)}"
+            raise TwitchAPITimeoutError(error_msg) from e
+        except aiohttp.ClientConnectionError as e:
+            logger.exception("Connection error occurred during API request")
+            error_msg = f"Connection error: {str(e)}"
+            raise TwitchAPITimeoutError(error_msg) from e
 
     async def get_broadcaster(self, name: str) -> dict | None:
         """Get the broadcaster information.
