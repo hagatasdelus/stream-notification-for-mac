@@ -30,6 +30,15 @@ from src.utils import FormatValidator, UsernameValidator, get_base_path, get_log
 
 logger = get_logger(__name__)
 
+def _write_content(filepath: Path, data: bytes) -> None:
+    """Helper function to handle blocking file writes."""
+    with open(filepath, "wb") as f:
+        f.write(data)
+
+def _get_filename_from_url(url: str) -> str:
+    """Extract the filename from given URL."""
+    return os.path.basename(url)
+
 class StreamNotification(object):
     """StreamNotification
 
@@ -219,6 +228,24 @@ class StreamNotification(object):
             else:
                 await asyncio.sleep(AppConstant.CHECK_INTERVAL)
 
+    async def download_profile_image(self, image_url: str | None, save_path: Path) -> None:
+        """Download the broadcaster's profile image and save it to save_path.
+        
+        Args:
+            image_url (str | None): The URL of the image to download
+            save_path (Path): The path to save the image to
+        """
+        if not image_url or not self.twitch_api.session:
+            return
+        
+        try:
+            async with self.twitch_api.session.get(image_url) as response:
+                response.raise_for_status()
+                content = await response.read()
+            await asyncio.to_thread(_write_content, save_path, content)
+        except Exception as e:
+            logger.exception("Failed to download profile image.")
+
     async def check_streamer_existence(self, username: str, display_format: NotificationFormat) -> bool:
         """Check if the streamer exists
 
@@ -228,20 +255,22 @@ class StreamNotification(object):
 
         Returns:
             bool: True if the streamer exists, False otherwise
-
-        Raises:
-            TwitchAPIError: An error occurred while checking the streamer
         """
-        await self.display_message("Please wait a moment.")
-
         resources_dir = Path(os.path.join(self.base_dir.parent.as_posix(), "Resources"))
-        result = await self.twitch_api.get_broadcaster_id(username, resources_dir)
-        if not result or not result[0]:
+        broadcaster = await self.twitch_api.get_broadcaster(username)
+        if not broadcaster:
             message = f"{username} not found."
             await self.display_message(message)
             return False
 
-        broadcaster_id, image_filename = result
+        # broadcaster_id = broadcaster.get("id")
+        image_url = broadcaster.get("profile_image_url")
+        image_filename = None
+        
+        if image_url:
+            image_filename = _get_filename_from_url(image_url)
+            await self.download_profile_image(image_url, resources_dir / image_filename)
+
         image_filename = image_filename or "profile_image.png"
         self.downloaded_profile_image_name = image_filename
 

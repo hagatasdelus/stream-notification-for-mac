@@ -14,15 +14,16 @@ from src.utils import get_logger
 
 logger = get_logger(__name__)
 
+
 class Terminal(object):
     """Class for interacting with the terminal.
 
     Attributes:
         base_dir (Path): The base directory of the application.
     """
+
     def __init__(self, base_dir: Path) -> None:
-        """Initialize the terminal class.
-        """
+        """Initialize the terminal class."""
         self.base_dir = base_dir
 
     async def launch_terminal(self) -> None:
@@ -43,7 +44,7 @@ class Terminal(object):
                 script_path,
                 self.base_dir,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
             )
             await proc.communicate()
         except subprocess.SubprocessError:
@@ -65,10 +66,7 @@ class Terminal(object):
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "/usr/bin/osascript",
-                script_path,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                "/usr/bin/osascript", script_path, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
             await proc.communicate()
         except subprocess.SubprocessError:
