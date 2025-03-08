@@ -263,7 +263,6 @@ class StreamNotification(object):
             await self.display_message(message)
             return False
 
-        # broadcaster_id = broadcaster.get("id")
         image_url = broadcaster.get("profile_image_url")
         image_filename = None
         
@@ -308,7 +307,6 @@ class StreamNotification(object):
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
 
-        # Twitchクライアントのクリーンアップ
         await self.twitch_api.close()
 
         try:
@@ -422,8 +420,9 @@ async def run_stream_notification() -> None:
     if "--no-terminal" not in sys.argv and app.is_compiled():
         await app.terminal.launch_terminal()
         return
+    if not app.is_compiled():
+        sys.exit("The application must be compiled to run without a terminal.")
     run_task = asyncio.create_task(app.run())
     await run_task
     await app.cleanup_complete_event.wait()
-    if app.is_compiled():
-        await app.terminal.close_terminal()
+    await app.terminal.close_terminal()
