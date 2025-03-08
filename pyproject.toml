@@ -1,8 +1,10 @@
-[tool.poetry]
+[project]
 name = "stream_notification"
-version = "1.8.3"
+version = "0.0.1"
 description = ""
-authors = ["HaGaTa_"]
+authors = [
+    { name = "HaGaTa_", email = "hagatasdelus@gmail.com" }
+]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -15,10 +17,6 @@ mypy = "^1.11.2"
 nuitka = "^2.4.10"
 zstandard = "^0.23.0"
 aiohttp = "^3.10.10"
-
-############
-# mypyの設定
-############
 
 # https://mypy.readthedocs.io/en/stable/config_file.html
 prompt-toolkit = "^3.0.48"
@@ -36,7 +34,6 @@ check_untyped_defs = true
 warn_redundant_casts = true
 
 [[tool.mypy.overrides]]
-# サードパーティの[import-untyped]を無視する
 module = [
     'requests',
 ]
@@ -46,9 +43,6 @@ ignore_missing_imports = true
 line-length = 120
 
 # Option Settings
-## https://gihyo.jp/article/2023/03/monthly-python-2303
-## 略称一覧: https://pypi.org/project/ruff/0.0.242/#supported-rule
-
 
 lint.select = ["ALL"]
 
@@ -58,11 +52,11 @@ lint.ignore = [
     "UP",
     "PTH",
     "RUF",
-    "N818",   # Exception名のサフィックス警告
-    "SLF001", # プライベートメンバーアクセス警告
-    "E731",   # lambda式の代わりにdef使用警告
-    "ARG005", # 未使用のlambdaラムダ引数警告
-    "PGH003", # type: ignore
+    "N818",
+    "SLF001",
+    "E731",
+    "ARG005",
+    "PGH003",
 ]
 
 # Assume Python 3.11
