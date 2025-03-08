@@ -25,10 +25,19 @@ from InquirerPy import inquirer
 from src.constants import AppConstant
 from src.enums import NotificationFormat
 from src.terminal import Terminal
-from src.twitch import TwitchAPI
+from src.twitch import TwitchAPI, TwitchAPITimeoutError
 from src.utils import FormatValidator, UsernameValidator, get_base_path, get_logger
 
 logger = get_logger(__name__)
+
+def _write_content(filepath: Path, data: bytes) -> None:
+    """Helper function to handle blocking file writes."""
+    with open(filepath, "wb") as f:
+        f.write(data)
+
+def _get_filename_from_url(url: str) -> str:
+    """Extract the filename from given URL."""
+    return os.path.basename(url)
 
 class StreamNotification(object):
     """StreamNotification
@@ -201,23 +210,47 @@ class StreamNotification(object):
             display_format (str): The display format to use
 
         Raises:
-            TwitchAPIError: An error occurred while checking the stream status
+            TwitchAPITimeoutError: If the Twitch API request times out
         """
         while self.is_running:
-            display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
+            try:
+                display_name, stream_title = await self.twitch_api.get_stream_by_name(username)
 
-            if display_name and stream_title:
-                url_string = f"https://www.twitch.tv/{username}"
-                a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
-                message = self.format_display_message(username, display_name, stream_title)
-                notification_title = "Stream Started"
-                if display_format == NotificationFormat.NOTIFICATION:
-                    await self._run_notification_script(message, notification_title)
+                if display_name and stream_title:
+                    url_string = f"https://www.twitch.tv/{username}"
+                    a_url: urllib3.util.Url = urllib3.util.parse_url(url_string)
+                    message = self.format_display_message(username, display_name, stream_title)
+                    notification_title = "Stream Started"
+                    if display_format == NotificationFormat.NOTIFICATION:
+                        await self._run_notification_script(message, notification_title)
+                    else:
+                        await self._run_dialog_script(message, notification_title, a_url)
+                    await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
                 else:
-                    await self._run_dialog_script(message, notification_title, a_url)
-                await asyncio.sleep(AppConstant.STREAMING_INTERVAL)
-            else:
-                await asyncio.sleep(AppConstant.CHECK_INTERVAL)
+                    await asyncio.sleep(AppConstant.CHECK_INTERVAL)
+            except TwitchAPITimeoutError:
+                logger.error("Connection timed out. Terminating application.")
+                print("\nConnection to Twitch API timed out. Terminating application...")
+                await self.cleanup()
+                break
+
+    async def download_profile_image(self, image_url: str | None, save_path: Path) -> None:
+        """Download the broadcaster's profile image and save it to save_path.
+        
+        Args:
+            image_url (str | None): The URL of the image to download
+            save_path (Path): The path to save the image to
+        """
+        if not image_url or not self.twitch_api.session:
+            return
+        
+        try:
+            async with self.twitch_api.session.get(image_url) as response:
+                response.raise_for_status()
+                content = await response.read()
+            await asyncio.to_thread(_write_content, save_path, content)
+        except Exception as e:
+            logger.exception("Failed to download profile image.")
 
     async def check_streamer_existence(self, username: str, display_format: NotificationFormat) -> bool:
         """Check if the streamer exists
@@ -228,20 +261,21 @@ class StreamNotification(object):
 
         Returns:
             bool: True if the streamer exists, False otherwise
-
-        Raises:
-            TwitchAPIError: An error occurred while checking the streamer
         """
-        await self.display_message("Please wait a moment.")
-
         resources_dir = Path(os.path.join(self.base_dir.parent.as_posix(), "Resources"))
-        result = await self.twitch_api.get_broadcaster_id(username, resources_dir)
-        if not result or not result[0]:
+        broadcaster = await self.twitch_api.get_broadcaster(username)
+        if not broadcaster:
             message = f"{username} not found."
             await self.display_message(message)
             return False
 
-        broadcaster_id, image_filename = result
+        image_url = broadcaster.get("profile_image_url")
+        image_filename = None
+        
+        if image_url:
+            image_filename = _get_filename_from_url(image_url)
+            await self.download_profile_image(image_url, resources_dir / image_filename)
+
         image_filename = image_filename or "profile_image.png"
         self.downloaded_profile_image_name = image_filename
 
@@ -279,7 +313,6 @@ class StreamNotification(object):
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
 
-        # Twitchクライアントのクリーンアップ
         await self.twitch_api.close()
 
         try:
@@ -393,8 +426,9 @@ async def run_stream_notification() -> None:
     if "--no-terminal" not in sys.argv and app.is_compiled():
         await app.terminal.launch_terminal()
         return
+    if not app.is_compiled():
+        sys.exit("The application must be compiled to run without a terminal.")
     run_task = asyncio.create_task(app.run())
     await run_task
     await app.cleanup_complete_event.wait()
-    if app.is_compiled():
-        await app.terminal.close_terminal()
+    await app.terminal.close_terminal()
