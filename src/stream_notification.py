@@ -303,10 +303,8 @@ class StreamNotification(object):
         """
         if not self.is_running:
             return
-        logger.info("Starting application cleanup...")
         self.is_running = False
 
-        # 実行中のタスクをキャンセル
         for task in self._cleanup_tasks:
             if not task.done():
                 task.cancel()
@@ -324,21 +322,7 @@ class StreamNotification(object):
         except OSError:
             logger.warning("Failed to remove downloaded profile image.")
 
-        logger.info("Application cleanup completed")
         self.cleanup_complete_event.set()
-
-
-    def handle_signal(self, _sig: int, _frame: object | None) -> None:
-        """Handle incoming signals and initiate application shutdown
-
-        Args:
-            _sig (int): The signal number
-            _frame (object | None): The frame object
-        """
-        print("\nPlease wait a moment, terminating the application...")
-        print("Do not change the currently selected tab in the terminal.")
-        loop = asyncio.get_event_loop()
-        loop.create_task(self.cleanup())
 
     async def input_monitoring_settings(self) -> tuple[str, "NotificationFormat"]:
         """Prompt the user for monitoring settings
@@ -371,22 +355,17 @@ class StreamNotification(object):
             EOFError: If the input stream is closed
             KeyboardInterrupt: If the input stream is interrupted
         """
-        def _read_char() -> str:
-            # 標準入力の設定を保存
-            old_settings = termios.tcgetattr(sys.stdin)
-            try:
-                tty.setraw(sys.stdin.fileno()) # 標準入力を非カノニカルモードに設定
-                return sys.stdin.read(1)
-            finally:
-                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings) # 標準入力の設定を元に戻す
-
         loop = asyncio.get_event_loop()
-        while self.is_running:
-            char = await loop.run_in_executor(None, _read_char)
-            if char.lower() == "q":
-                print("\nQuit command received. Terminating application...")
-                await self.cleanup()
-                break
+        old_settings = termios.tcgetattr(sys.stdin)
+        tty.setraw(sys.stdin.fileno())
+        try:
+            while self.is_running:
+                char = await loop.run_in_executor(None, sys.stdin.read, 1)
+                if char.lower() == "q":
+                    await self.cleanup()
+                    break
+        finally:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
     async def run(self) -> None:
         """Main execution loop of the application
@@ -396,21 +375,18 @@ class StreamNotification(object):
         """
         async with self.initialize():
             try:
-                # 監視設定の入力
                 username, display_format = await self.input_monitoring_settings()
-                # ストリーマーの存在確認
                 if username and display_format:
                     if not await self.check_streamer_existence(username, display_format):
                         return
 
-                    # 配信状態の監視を開始
                     status_task = asyncio.create_task(self.check_stream_status(username, display_format))
                     self._cleanup_tasks.append(status_task)
                     quit_task = asyncio.create_task(self.listen_for_quit())
                     self._cleanup_tasks.append(quit_task)
                     await asyncio.wait([status_task, quit_task], return_when=asyncio.FIRST_COMPLETED)
             except (KeyboardInterrupt, asyncio.CancelledError):
-                logger.info("Application shutdown requested")
+                pass
             finally:
                 await self.cleanup()
 
