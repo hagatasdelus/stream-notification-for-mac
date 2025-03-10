@@ -21,6 +21,7 @@ from typing import AsyncIterator
 
 import urllib3.util
 from InquirerPy import inquirer
+from InquirerPy.utils import color_print
 
 from src.constants import AppConstant
 from src.enums import NotificationFormat
@@ -75,7 +76,18 @@ class StreamNotification(object):
     async def display_message(self, message: str) -> None:
         """Display a message to the user"""
         print(message)
-        await asyncio.sleep(0)
+
+    def display_colored_found_message(self, username: str, message: str) -> None:
+        """Display a message to the user
+
+        Args:
+            username (str): The username of the streamer
+            message (str): The message to display
+        """
+        color_print([
+            ("#65daef bold", username),
+            ("#ffffff", f" {message}")
+        ])
 
     def format_display_message(self, username: str, display_name: str, stream_title: str) -> str:
         """Formats the message to be displayed
@@ -265,8 +277,7 @@ class StreamNotification(object):
         resources_dir = Path(os.path.join(self.base_dir.parent.as_posix(), "Resources"))
         broadcaster = await self.twitch_api.get_broadcaster(username)
         if not broadcaster:
-            message = f"{username} not found."
-            await self.display_message(message)
+            self.display_colored_found_message(username, "not found.")
             return False
 
         image_url = broadcaster.get("profile_image_url")
@@ -279,16 +290,17 @@ class StreamNotification(object):
         image_filename = image_filename or "profile_image.png"
         self.downloaded_profile_image_name = image_filename
 
-        message = f"{username} found. You will be notified when the streaming starts."
-
+        message = "found. You will be notified when the streaming starts."
+        self.display_colored_found_message(username, message)
         found_title = "Streamer Found"
+        found_msg = f"{username} {message}"
+
         if display_format == NotificationFormat.NOTIFICATION:
-            await self._run_notification_script(message, found_title)
+            await self._run_notification_script(found_msg, found_title)
         else:
             icon_path = os.path.join(resources_dir.as_posix(), image_filename)
-            await self._run_starting_dialog_script(message, found_title, icon_path)
+            await self._run_starting_dialog_script(found_msg, found_title, icon_path)
 
-        await self.display_message(message)
         how_to_quit = "Type [q] to quit the application."
         await self.display_message(how_to_quit)
         return True
