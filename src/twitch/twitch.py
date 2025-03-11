@@ -7,7 +7,7 @@ This module provides an asynchronous client for interacting with the Twitch API.
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List
+from typing import Any
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
@@ -142,17 +142,17 @@ class TwitchAPI:
     async def _get_response(
         self,
         url: str,
-        query_params: Dict[str, Any] | None = None
-    ) -> List[Dict[str, Any]] | None:
+        query_params: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]] | None:
         """Get the response data from the API.
-        
+
         Args:
             url (str): The URL to make the request to
-            query_params (Dict[str, Any] | None, optional): The query parameters. Defaults to None.
-            
+            query_params (dict[str, Any] | None, optional): The query parameters. Defaults to None.
+
         Returns:
-            List[Dict[str, Any]] | None: The response data if successful, None otherwise
-            
+            list[dict[str, Any]] | None: The response data if successful, None otherwise
+
         Raises:
             TwitchAPIError: If the request fails
             TwitchAPITimeoutError: If the request times out
@@ -173,10 +173,10 @@ class TwitchAPI:
 
     async def get_broadcaster(self, name: str) -> dict | None:
         """Get the broadcaster information.
-        
+
         Args:
             name (str): The username of the broadcaster
-        
+
         Returns:
             Optional[BroadcasterData]: The broadcaster information if found, None otherwise
         """
