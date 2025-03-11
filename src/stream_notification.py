@@ -10,6 +10,7 @@ which monitors the streaming status of a Twitch streamer and provides notificati
 import asyncio
 import contextlib
 import os
+import signal
 import subprocess
 import sys
 import termios
@@ -312,7 +313,10 @@ class StreamNotification(object):
 
         Raises:
             asyncio.CancelledError: The task was cancelled
+            OSError: An error occurred while removing the downloaded profile image
         """
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+
         if not self.is_running:
             return
         self.is_running = False
@@ -362,10 +366,6 @@ class StreamNotification(object):
 
     async def listen_for_quit(self) -> None:
         """This method listens for the 'q' keypress and triggers the cleanup process when detected.
-
-        Raises:
-            EOFError: If the input stream is closed
-            KeyboardInterrupt: If the input stream is interrupted
         """
         loop = asyncio.get_event_loop()
         old_settings = termios.tcgetattr(sys.stdin)
