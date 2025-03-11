@@ -13,12 +13,23 @@ Notification of the start of a Twitch Stream for a specified streamer on MacOS
 
 </div>
 
->
-
 ## Installation
 
 ```sh
+git clone https://github.com/hagatasdelus/stream-notification-for-mac.git
+```
+
+Install project packages using Poetry.
+
+```sh
 poetry install
+```
+
+> **Notes**
+> If the version of Poetry is 2.x, do the following
+
+```sh
+poetry self add poetry-plugin-shell
 ```
 
 ## Build
@@ -27,8 +38,16 @@ poetry install
 > Set the following in .env
 
 ```.env
-Client_ID=
-Client_Secret=
+Client_ID=your_client_id
+Client_Secret=your_client_secret
+```
+
+### Packaging the application
+
+Entering the virtual environment
+
+```sh
+poetry shell
 ```
 
 ```sh
@@ -45,5 +64,5 @@ MIT
 
 - [inquirerpy](https://github.com/kazhala/InquirerPy)
 - [python-prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)
-- [nuitka](https://github.com/Nuitka/Nuitka)
 - [aiohttp](https://github.com/aio-libs/aiohttp)
+- [nuitka](https://github.com/Nuitka/Nuitka)
