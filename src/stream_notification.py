@@ -85,9 +85,14 @@ class StreamNotification(object):
             username (str): The username of the streamer
             message (str): The message to display
         """
+        parts = message.split(username)
+        prefix = parts[0]
+        suffix = parts[1]
+
         color_print([
+            ("#ffffff", prefix),
             ("#65daef bold", username),
-            ("#ffffff", f" {message}")
+            ("#ffffff", suffix)
         ])
 
     def format_display_message(self, username: str, display_name: str, stream_title: str) -> str:
@@ -291,11 +296,9 @@ class StreamNotification(object):
         image_filename = image_filename or "profile_image.png"
         self.downloaded_profile_image_name = image_filename
 
-        message = "found. You will be notified when the streaming starts."
-        self.display_colored_found_message(username, message)
+        found_msg = f"Found {username}. You will be notified when the streaming starts."
+        self.display_colored_found_message(username, found_msg)
         found_title = "Streamer Found"
-        found_msg = f"{username} {message}"
-
         if display_format == NotificationFormat.NOTIFICATION:
             await self._run_notification_script(found_msg, found_title)
         else:
