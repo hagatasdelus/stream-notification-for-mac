@@ -27,7 +27,7 @@ from InquirerPy.utils import color_print
 from src.constants import AppConstant
 from src.enums import NotificationFormat
 from src.terminal import Terminal
-from src.twitch import TwitchAPI, TwitchAPITimeoutError
+from src.twitch import TwitchAPI, TwitchAPIError, TwitchAPITimeoutError
 from src.utils import FormatValidator, UsernameValidator, get_base_path, get_logger
 
 logger = get_logger(__name__)
@@ -247,8 +247,11 @@ class StreamNotification(object):
                 else:
                     await asyncio.sleep(AppConstant.CHECK_INTERVAL)
             except TwitchAPITimeoutError:
-                logger.exception("Connection timed out. Terminating application.")
                 print("\nConnection to Twitch API timed out. Terminating application...")
+                await self.cleanup()
+                break
+            except TwitchAPIError:
+                print("\nFailed to get stream data. Terminating application...")
                 await self.cleanup()
                 break
 

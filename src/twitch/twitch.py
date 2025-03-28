@@ -98,10 +98,10 @@ class TwitchAPI:
                 response.raise_for_status()
                 data = await response.json()
                 self.access_token = data["access_token"]
-        except aiohttp.ClientError as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             logger.exception(AppConstant.ERROR_ACCESS_TOKEN_FAILED)
             error_msg = f"{AppConstant.ERROR_ACCESS_TOKEN_FAILED}: {str(e)}"
-            raise TwitchAPIError(error_msg) from e
+            raise TwitchAPIError(error_msg) from None
 
     def _get_headers(self) -> dict[str, str]:
         """Get the headers for the API request.
@@ -134,10 +134,10 @@ class TwitchAPI:
                 params=query_params
             ) as response:
                 yield response
-        except aiohttp.ClientError as e:
-            logger.exception(AppConstant.ERROR_API_REQUEST_FAILED)
-            error_msg = f"{AppConstant.ERROR_API_REQUEST_FAILED}: {str(e)}"
-            raise TwitchAPIError(error_msg) from e
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
+        except aiohttp.ClientError:
+            raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
 
     async def _get_response(
         self,
@@ -162,14 +162,10 @@ class TwitchAPI:
                 response.raise_for_status()
                 data = await response.json()
                 return data.get("data")
-        except asyncio.TimeoutError as e:
-            logger.exception("Timeout error occurred while making API request")
-            error_msg = f"API request timed out: {str(e)}"
-            raise TwitchAPITimeoutError(error_msg) from e
-        except aiohttp.ClientConnectionError as e:
-            logger.exception("Connection error occurred during API request")
-            error_msg = f"Connection error: {str(e)}"
-            raise TwitchAPITimeoutError(error_msg) from e
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            raise TwitchAPITimeoutError(AppConstant.ERROR_API_TIMEOUT_FAILED) from None
+        except aiohttp.ClientError:
+            raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
 
     async def get_broadcaster(self, name: str) -> dict | None:
         """Get the broadcaster information.
@@ -186,10 +182,8 @@ class TwitchAPI:
             data = await self._get_response(url, query_params)
             if not data or not data[0]:
                 return None
-
             return data[0]
-        except (TwitchAPIError, IndexError):
-            logger.exception("Failed to get broadcaster info for %s", name)
+        except IndexError:
             return None
 
     async def get_stream_by_id(
@@ -205,8 +199,7 @@ class TwitchAPI:
             if not stream_data:
                 return None, None
             return self._get_stream_data(stream_data)
-        except TwitchAPIError:
-            logger.exception("Failed to get stream data for user ID %s", user_id)
+        except (TwitchAPIError, TwitchAPITimeoutError):
             return None, None
 
     async def get_stream_by_name(
@@ -223,9 +216,10 @@ class TwitchAPI:
             if not stream_data:
                 return None, None
             return self._get_stream_data(stream_data)
+        except TwitchAPITimeoutError:
+            raise TwitchAPIError(AppConstant.ERROR_API_TIMEOUT_FAILED) from None
         except TwitchAPIError:
-            logger.exception("Failed to get stream data for user %s", user_name)
-            return None, None
+            raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
 
     def _get_stream_data(
         self,
