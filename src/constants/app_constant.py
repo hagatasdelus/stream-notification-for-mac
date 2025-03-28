@@ -39,6 +39,7 @@ class AppConstant(StrictConstant):
     ERROR_ACCESS_TOKEN_NOT_AVAILABLE: str = "Access token not available" # noqa: S105
     ERROR_ACCESS_TOKEN_FAILED: str = "Failed to get access token" # noqa: S105
     ERROR_API_REQUEST_FAILED: str = "API request failed"
+    ERROR_API_TIMEOUT_FAILED: str = "API request timed out"
 
     STYLE: dict = {
         "questionmark": "#a7e22e bold",  # ?マークの色
