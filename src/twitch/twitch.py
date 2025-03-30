@@ -9,8 +9,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-import aiohttp
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientError, ClientSession, ClientTimeout
 
 from src import CLIENT_ID, CLIENT_SECRET
 from src.constants import AppConstant
@@ -60,7 +59,7 @@ class TwitchAPI:
     async def initialize(self) -> None:
         """Initialize the API client."""
         if not self.session:
-            self.session = aiohttp.ClientSession(timeout=self.timeout)
+            self.session = ClientSession(timeout=self.timeout)
             await self._ensure_access_token()
 
     async def close(self) -> None:
@@ -98,7 +97,7 @@ class TwitchAPI:
                 response.raise_for_status()
                 data = await response.json()
                 self.access_token = data["access_token"]
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (ClientError, asyncio.TimeoutError, TimeoutError) as e:
             logger.exception(AppConstant.ERROR_ACCESS_TOKEN_FAILED)
             error_msg = f"{AppConstant.ERROR_ACCESS_TOKEN_FAILED}: {str(e)}"
             raise TwitchAPIError(error_msg) from None
@@ -134,9 +133,9 @@ class TwitchAPI:
                 params=query_params
             ) as response:
                 yield response
-        except (asyncio.TimeoutError, asyncio.CancelledError):
+        except (asyncio.TimeoutError, asyncio.CancelledError, TimeoutError):
             raise TwitchAPITimeoutError(AppConstant.ERROR_API_REQUEST_FAILED) from None
-        except (aiohttp.ClientError, TwitchAPIError):
+        except (ClientError, TwitchAPIError):
             raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
 
     async def _get_response(
