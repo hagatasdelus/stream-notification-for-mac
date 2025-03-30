@@ -15,9 +15,6 @@ from aiohttp import ClientSession, ClientTimeout
 from src import CLIENT_ID, CLIENT_SECRET
 from src.constants import AppConstant
 
-# from requests.exceptions
-
-
 logger = logging.getLogger(__name__)
 
 class TwitchAPIError(Exception):
@@ -167,7 +164,7 @@ class TwitchAPI:
                 return data.get("data")
         except TwitchAPITimeoutError:
             raise TwitchAPITimeoutError(AppConstant.ERROR_API_TIMEOUT_FAILED) from None
-        except (aiohttp.ClientError, TwitchAPIError):
+        except TwitchAPIError:
             raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
 
     async def get_broadcaster(self, name: str) -> dict | None:
