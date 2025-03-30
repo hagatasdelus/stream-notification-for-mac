@@ -15,6 +15,9 @@ from aiohttp import ClientSession, ClientTimeout
 from src import CLIENT_ID, CLIENT_SECRET
 from src.constants import AppConstant
 
+# from requests.exceptions
+
+
 logger = logging.getLogger(__name__)
 
 class TwitchAPIError(Exception):
@@ -135,8 +138,8 @@ class TwitchAPI:
             ) as response:
                 yield response
         except (asyncio.TimeoutError, asyncio.CancelledError):
-            raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
-        except aiohttp.ClientError:
+            raise TwitchAPITimeoutError(AppConstant.ERROR_API_REQUEST_FAILED) from None
+        except (aiohttp.ClientError, TwitchAPIError):
             raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
 
     async def _get_response(
@@ -162,9 +165,9 @@ class TwitchAPI:
                 response.raise_for_status()
                 data = await response.json()
                 return data.get("data")
-        except (asyncio.TimeoutError, asyncio.CancelledError):
+        except TwitchAPITimeoutError:
             raise TwitchAPITimeoutError(AppConstant.ERROR_API_TIMEOUT_FAILED) from None
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, TwitchAPIError):
             raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
 
     async def get_broadcaster(self, name: str) -> dict | None:
@@ -217,7 +220,7 @@ class TwitchAPI:
                 return None, None
             return self._get_stream_data(stream_data)
         except TwitchAPITimeoutError:
-            raise TwitchAPIError(AppConstant.ERROR_API_TIMEOUT_FAILED) from None
+            raise TwitchAPITimeoutError(AppConstant.ERROR_API_TIMEOUT_FAILED) from None
         except TwitchAPIError:
             raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
 
