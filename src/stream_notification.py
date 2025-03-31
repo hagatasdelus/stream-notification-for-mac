@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 import urllib3.util
+from aiohttp import ClientError
 from InquirerPy import inquirer
 from InquirerPy.utils import color_print
 
@@ -229,6 +230,7 @@ class StreamNotification(object):
 
         Raises:
             TwitchAPITimeoutError: If the Twitch API request times out
+            TwitchAPIError: If the Twitch API request fails
         """
         while self.is_running:
             try:
@@ -270,7 +272,7 @@ class StreamNotification(object):
                 response.raise_for_status()
                 content = await response.read()
             await asyncio.to_thread(_write_content, save_path, content)
-        except Exception:
+        except ClientError:
             logger.exception("Failed to download profile image.")
 
     async def check_streamer_existence(self, username: str, display_format: NotificationFormat) -> bool:
