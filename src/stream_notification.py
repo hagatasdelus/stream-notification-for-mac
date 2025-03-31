@@ -21,14 +21,13 @@ from pathlib import Path
 from typing import AsyncIterator
 
 import urllib3.util
-from aiohttp import ClientError
 from InquirerPy import inquirer
 from InquirerPy.utils import color_print
 
 from src.constants import AppConstant
 from src.enums import NotificationFormat
 from src.terminal import Terminal
-from src.twitch import TwitchAPI, TwitchAPIError, TwitchAPITimeoutError
+from src.twitch import TwitchAPI, TwitchAPITimeoutError
 from src.utils import FormatValidator, UsernameValidator, get_base_path, get_logger
 
 logger = get_logger(__name__)
@@ -230,7 +229,6 @@ class StreamNotification(object):
 
         Raises:
             TwitchAPITimeoutError: If the Twitch API request times out
-            TwitchAPIError: If the Twitch API request fails
         """
         while self.is_running:
             try:
@@ -252,10 +250,6 @@ class StreamNotification(object):
                 print("\nConnection to Twitch API timed out. Terminating application...")
                 await self.cleanup()
                 break
-            except TwitchAPIError:
-                print("\nFailed to get stream data. Terminating application...")
-                await self.cleanup()
-                break
 
     async def download_profile_image(self, image_url: str | None, save_path: Path) -> None:
         """Download the broadcaster's profile image and save it to save_path.
@@ -272,7 +266,7 @@ class StreamNotification(object):
                 response.raise_for_status()
                 content = await response.read()
             await asyncio.to_thread(_write_content, save_path, content)
-        except ClientError:
+        except Exception:
             logger.exception("Failed to download profile image.")
 
     async def check_streamer_existence(self, username: str, display_format: NotificationFormat) -> bool:
@@ -387,44 +381,37 @@ class StreamNotification(object):
         finally:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
+    async def _start_monitoring_session(self) -> None:
+        username, display_format = await self.input_monitoring_settings()
+        if username and display_format:
+            if not await self.check_streamer_existence(username, display_format):
+                return
+
+            status_task = asyncio.create_task(self.check_stream_status(username, display_format))
+            self._cleanup_tasks.append(status_task)
+            quit_task = asyncio.create_task(self.listen_for_quit())
+            self._cleanup_tasks.append(quit_task)
+            await asyncio.wait([status_task, quit_task], return_when=asyncio.FIRST_COMPLETED)
+
     async def run(self) -> None:
         """Main execution loop of the application
 
         Prompts the user for the streamer's username and the notification method,
         then checks for the streamer's existence.
         """
-        async with self.initialize():
-            try:
-                username, display_format = await self.input_monitoring_settings()
-                if username and display_format:
-                    if not await self.check_streamer_existence(username, display_format):
-                        return
-
-                    status_task = asyncio.create_task(self.check_stream_status(username, display_format))
-                    self._cleanup_tasks.append(status_task)
-                    quit_task = asyncio.create_task(self.listen_for_quit())
-                    self._cleanup_tasks.append(quit_task)
-                    await asyncio.wait([status_task, quit_task], return_when=asyncio.FIRST_COMPLETED)
-            except (KeyboardInterrupt, asyncio.CancelledError):
-                pass
-            finally:
-                await self.cleanup()
+        try:
+            async with self.initialize():
+                try:
+                    await self._start_monitoring_session()
+                except (KeyboardInterrupt, asyncio.CancelledError):
+                    pass
+                finally:
+                    await self.cleanup()
+        except TwitchAPITimeoutError:
+            print("\nAccess token could not be obtained due to Timeout.\nPlease launch the application again.")
+            await self.cleanup()
 
     def is_compiled(self) -> bool:
         """Check if the application is compiled
         """
         return "__compiled__" in globals()
-
-async def run_stream_notification() -> None:
-    """Run the StreamNotification application
-    """
-    app = StreamNotification()
-    if "--no-terminal" not in sys.argv and app.is_compiled():
-        await app.terminal.launch_terminal()
-        return
-    if not app.is_compiled():
-        sys.exit("The application must be compiled to run without a terminal.")
-    run_task = asyncio.create_task(app.run())
-    await run_task
-    await app.cleanup_complete_event.wait()
-    await app.terminal.close_terminal()

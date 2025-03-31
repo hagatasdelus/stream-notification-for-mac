@@ -9,7 +9,8 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from aiohttp import ClientError, ClientSession, ClientTimeout
+import aiohttp
+from aiohttp import ClientSession, ClientTimeout
 
 from src import CLIENT_ID, CLIENT_SECRET
 from src.constants import AppConstant
@@ -59,7 +60,7 @@ class TwitchAPI:
     async def initialize(self) -> None:
         """Initialize the API client."""
         if not self.session:
-            self.session = ClientSession(timeout=self.timeout)
+            self.session = aiohttp.ClientSession(timeout=self.timeout)
             await self._ensure_access_token()
 
     async def close(self) -> None:
@@ -78,8 +79,7 @@ class TwitchAPI:
                 await self._get_access_token()
 
     async def _get_access_token(self) -> None:
-        """Get the access token for the Twitch API.
-        """
+        """Get the access token for the Twitch API."""
         if not self.session:
             raise TwitchAPIError(
                 AppConstant.ERROR_SESSION_NOT_INITIALIZED
@@ -97,10 +97,8 @@ class TwitchAPI:
                 response.raise_for_status()
                 data = await response.json()
                 self.access_token = data["access_token"]
-        except (ClientError, asyncio.TimeoutError, TimeoutError) as e:
-            logger.exception(AppConstant.ERROR_ACCESS_TOKEN_FAILED)
-            error_msg = f"{AppConstant.ERROR_ACCESS_TOKEN_FAILED}: {str(e)}"
-            raise TwitchAPIError(error_msg) from None
+        except (asyncio.TimeoutError, asyncio.CancelledError, TimeoutError):
+            raise TwitchAPITimeoutError(AppConstant.ERROR_ACCESS_TOKEN_TIMEOUT) from None
 
     def _get_headers(self) -> dict[str, str]:
         """Get the headers for the API request.
@@ -133,10 +131,10 @@ class TwitchAPI:
                 params=query_params
             ) as response:
                 yield response
-        except (asyncio.TimeoutError, asyncio.CancelledError, TimeoutError):
-            raise TwitchAPITimeoutError(AppConstant.ERROR_API_REQUEST_FAILED) from None
-        except (ClientError, TwitchAPIError):
-            raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.exception(AppConstant.ERROR_API_REQUEST_FAILED)
+            error_msg = f"{AppConstant.ERROR_API_REQUEST_FAILED}: {str(e)}"
+            raise TwitchAPIError(error_msg) from e
 
     async def _get_response(
         self,
@@ -161,10 +159,10 @@ class TwitchAPI:
                 response.raise_for_status()
                 data = await response.json()
                 return data.get("data")
-        except TwitchAPITimeoutError:
-            raise TwitchAPITimeoutError(AppConstant.ERROR_API_TIMEOUT_FAILED) from None
-        except TwitchAPIError:
-            raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            raise TwitchAPIError(AppConstant.ERROR_API_TIMEOUT_FAILED) from None
+        except asyncio.CancelledError:
+            raise TwitchAPITimeoutError(AppConstant.ERROR_API_REQUEST_FAILED) from None
 
     async def get_broadcaster(self, name: str) -> dict | None:
         """Get the broadcaster information.
@@ -181,8 +179,11 @@ class TwitchAPI:
             data = await self._get_response(url, query_params)
             if not data or not data[0]:
                 return None
+
             return data[0]
-        except IndexError:
+        except TwitchAPITimeoutError:
+            return None
+        except (TwitchAPIError, IndexError):
             return None
 
     async def get_stream_by_id(
@@ -215,10 +216,8 @@ class TwitchAPI:
             if not stream_data:
                 return None, None
             return self._get_stream_data(stream_data)
-        except TwitchAPITimeoutError:
-            raise TwitchAPITimeoutError(AppConstant.ERROR_API_TIMEOUT_FAILED) from None
-        except TwitchAPIError:
-            raise TwitchAPIError(AppConstant.ERROR_API_REQUEST_FAILED) from None
+        except (TwitchAPIError, TwitchAPITimeoutError):
+            return None, None
 
     def _get_stream_data(
         self,
