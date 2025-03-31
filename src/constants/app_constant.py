@@ -37,7 +37,7 @@ class AppConstant(StrictConstant):
     # エラーメッセージの定義
     ERROR_SESSION_NOT_INITIALIZED: str = "Session not initialized"
     ERROR_ACCESS_TOKEN_NOT_AVAILABLE: str = "Access token not available" # noqa: S105
-    ERROR_ACCESS_TOKEN_FAILED: str = "Failed to get access token" # noqa: S105
+    ERROR_ACCESS_TOKEN_TIMEOUT: str = "Access token request timed out"
     ERROR_API_REQUEST_FAILED: str = "API request failed"
     ERROR_API_TIMEOUT_FAILED: str = "API request timed out"
 
