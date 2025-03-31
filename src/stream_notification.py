@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 import urllib3.util
+from aiohttp import ClientError
 from InquirerPy import inquirer
 from InquirerPy.utils import color_print
 
@@ -266,7 +267,7 @@ class StreamNotification(object):
                 response.raise_for_status()
                 content = await response.read()
             await asyncio.to_thread(_write_content, save_path, content)
-        except Exception:
+        except ClientError:
             logger.exception("Failed to download profile image.")
 
     async def check_streamer_existence(self, username: str, display_format: NotificationFormat) -> bool:
